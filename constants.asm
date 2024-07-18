@@ -5,6 +5,6 @@ PPU_DATA        = $2007
 PPU_SCROLL      = $2005
 ;sprite_data     = $0200
 OAM = $0200
-
+NT0             = $2000 ; Nametable Zero
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20

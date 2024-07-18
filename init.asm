@@ -1,10 +1,12 @@
 .include "constants.asm"
+;.include "game.asm"
+
+.import game
+.export frame_done, frame_count, head_index_hi, head_index_lo, tail_index, snake_update ;head_x, head_y, tail_x, tail_y, size, dir
+.import nmi
 
 Message:
 .byte "Hello World!", $00
-
-.segment "ZEROPAGE"
-frame_done:     .res 1
 
 .segment "HEADER"
 	.byte "NES",26, 2,1, 0,0
@@ -69,25 +71,23 @@ reset:
 
 jsr load_palette
 
-lda #$21
-sta PPU_ADDRESS
-lda #$ca
-sta PPU_ADDRESS
+; lda #$21
+; sta PPU_ADDRESS
+; lda #$ca
+; sta PPU_ADDRESS
 
-Loop:
-    LDA Message,X     ; Load the byte at Message + X into A
-    BEQ Done          ; If it's the null terminator, jump to Done
-    STA PPU_DATA       ; Store the byte in memory at $0200 + Y
-    INX               ; Increment X to point to the next character in the string
+    ;lda 2000 + (32*16 + 15)
+    ;lda <$#09E0
+
+; Loop:
+;     LDA Message,X     ; Load the byte at Message + X into A
+;     BEQ Done          ; If it's the null terminator, jump to Done
+;     STA PPU_DATA       ; Store the byte in memory at $0200 + Y
+;     INX               ; Increment X to point to the next character in the string
     ;INY               ; Increment Y to point to the next memory location
-    JMP Loop          ; Repeat the loop
+;     JMP Loop          ; Repeat the loop
 
-Done:
-
-; reset scroll location to top-left of screen
-lda #$00
-sta PPU_SCROLL
-sta PPU_SCROLL
+; Done:
 
 lda #$c0
 sta $0200
@@ -118,30 +118,9 @@ sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
 
-@loop:
-	;ldx #$0
-	;@loop2:
-		; lda #$cf
-		;txa
-		;sta $000, x
-		;inx
-		;cpx #$a
-		;bne @loop2
-	;inc $00
-    jsr wait_frame
-    ;inc $00
-    inc $0203
-jmp @loop
+jsr game
 
 ;palette = $0000
-
-.proc wait_frame
-    inc frame_done          ; Make it non-zero
-    @loop:
-        lda frame_done
-        bne @loop           ; Wait for frame_done to become zero again
-        rts
-.endproc
 
 .proc load_palette
     lda #$3f
@@ -163,63 +142,26 @@ jmp @loop
     rts
 .endproc
 
-.proc nmi
-    ; Define RGB values for a sprite palette (example)
-    ;palette:
-
-	;sta $00, x
-	
-
-    ; Load palette into PPU registers
-    ;ldx #$0              ; Start with color 0
-    ;lda #$55       ; Load first color (RGB values)
-    ;sta $3F00,x         ; Store in PPU palette register
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load second color (RGB values)
-    ;sta $3F00,x         ; Store in PPU palette register
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load third color (RGB values)
-    ;sta $3F00,x         ; Store in PPU palette register
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load fourth color (RGB values)
-    ;sta $3F00,x         ; Store in PPU palette register
-
-    ; Example of setting palette for sprites (PPU address $3F10-$3F1F)
-    ;ldx #$0              ; Start with color 0
-    ;lda $0000,x       ; Load first color (RGB values)
-    ;sta $3F10,x         ; Store in PPU palette register (sprite palette)
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load second color (RGB values)
-    ;sta $3F10,x         ; Store in PPU palette register (sprite palette)
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load third color (RGB values)
-    ;sta $3F10,x         ; Store in PPU palette register (sprite palette)
-    ;inx                 ; Increment index
-    ;lda $0000,x       ; Load fourth color (RGB values)
-    ;sta $3F10,x         ; Store in PPU palette register (sprite palette)
-
-    ; Set up OAMADDR
-    ;lda #<OAM   ; Low byte of sprite_data address
-    ;sta OAM_ADDRESS           ; Store low byte into OAMADDR
-
-    ;lda #$20            ; High byte of sprite_data address
-    lda #$0                     ; Start writing at OAM_ADDRESS 0 in the PPU
-    sta OAM_ADDRESS           ; Store high byte into OAMADDR
-    lda #>OAM                   ; Store high byte into OAM_DMA
-    sta OAM_DMA
-
-    lda #$0
-    sta frame_done      ; Ding fries are done
-
-    ; Wait for DMA transfer to complete (optional)
-    ;wait_dma:
-        ;bit $2002       ; Check if DMA transfer is still in progress
-        ;bpl wait_dma    ; Wait until DMA transfer completes
-	rti
-.endproc
-
 .segment "VECTORS"
 	.addr nmi, reset, 0
 
 .segment "CHARS"
     .incbin "sprites.chr"
+
+.segment "ZEROPAGE"
+frame_done:     .res 1
+frame_count:    .res 1
+head_index_hi:  .res 1 ; The index into the memory space. We don't use x or y coords.
+head_index_lo:  .res 1
+tail_index:     .res 1
+snake_update:   .res 1
+;head_x:         .res 1
+;head_y:         .res 1
+;nt_head_x:      .res 1
+;nt_head_y:      .res 1
+;tail_x:         .res 1
+;tail_y:         .res 1
+;nt_tail_x:      .res 1
+;nt_tail_y:      .res 1
+size:           .res 1
+dir:            .res 1

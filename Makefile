@@ -2,7 +2,7 @@
 AS = ca65
 LD = ld65
 
-SOURCES = init.asm constants.asm
+SOURCES = init.asm constants.asm game.asm
 OBJECTS = $(SOURCES:.asm=.o)
 OUTPUT = snake.nes
 
@@ -22,7 +22,7 @@ SOURCE=init.asm
 
 # Link rule
 $(OUTPUT): $(OBJECTS)
-	$(LD) -o $(OUTPUT) $(OBJECTS)
+	$(LD) -o $(OUTPUT) $(OBJECTS) -Ln ${LABELFILE} -m ${MAPFILE} -vm --dbgfile ${DBGFILE} -C ${CONFIG}
 
 .PHONY: build clean run env-emulator-path
 
