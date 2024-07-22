@@ -8,3 +8,17 @@ OAM = $0200
 NT0             = $2000 ; Nametable Zero
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20
+JOYPAD1         = $4016
+UP              = 0
+DOWN            = 1
+LEFT            = 2
+RIGHT           = 3
+
+BUTTON_A      = 1 << 7
+BUTTON_B      = 1 << 6
+BUTTON_SELECT = 1 << 5
+BUTTON_START  = 1 << 4
+BUTTON_UP     = 1 << 3
+BUTTON_DOWN   = 1 << 2
+BUTTON_LEFT   = 1 << 1
+BUTTON_RIGHT  = 1 << 0
