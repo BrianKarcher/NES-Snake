@@ -162,7 +162,7 @@ jsr game
     @loop:
         jsr readjoyx_safe
         jsr process_input
-		;jsr snake
+		jsr snake
 		;ldx #$0
 		; @loop2:
 			; lda #$cf
@@ -180,7 +180,7 @@ jsr game
 .endproc
 
 .proc snake
-    rts
+    ;rts
 	lda frame_count
 	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
     cmp #$10 ; snake speed
@@ -189,65 +189,79 @@ jsr game
 	sta frame_count ; reset frame counter
     lda next_dir
     sta cur_dir
-	lda head_index_lo
 
     ;;;;
-    clc
-    adc #$01
-    sta head_index_lo   ; Move head to the right one tile
-    bcc @no_overflow
-    ;sta head_index_hi   ; carry bit
-    inc head_index_hi
-    jmp @buttonEnd
+    ;clc
+    ;adc #$01
+    ;sta head_index_lo   ; Move head to the right one tile
+    ;bcc @no_overflow
+    ;inc head_index_hi
+    ;jmp @buttonEnd
     ;;;;;
 
-    ldx cur_dir
-    cpx UP
+    ;lda cur_dir
+    cmp #UP
     bne @notUp
 	; adc #$01
-    clc
+    sec ; Set carry flag (to handle borrow)
+    lda head_index_lo
     sbc #$20 ; 20 hex = 32
+    ;adc #$20
     sta head_index_lo   ; Move head to the right one tile
-    bcc @no_overflow
-    ;sta head_index_hi   ; carry bit
-    dec head_index_hi
+    lda head_index_hi
+    sbc #$00 ; subtracts 1 if the low byte overflowed
+    sta head_index_hi
+    ;bcc @no_overflow
+    ;dec head_index_hi
     jmp @buttonEnd
     @notUp:
-    cpx DOWN
+    cmp #DOWN
     bne @notDown
     clc
+    lda head_index_lo
     adc #$20 ; 20 hex = 32
+    ;adc #$03
     sta head_index_lo   ; Move head to the right one tile
-    bcc @no_overflow
-    ;sta head_index_hi   ; carry bit
-    inc head_index_hi
+    lda head_index_hi
+    adc #$00    ; adds 1 if the low byte overflowed
+    sta head_index_hi
+    ;bcc @no_overflow
+    ;inc head_index_hi
     jmp @buttonEnd
     @notDown:
-    cpx LEFT
+    cmp #LEFT
     bne @notLeft
     clc
+    lda head_index_lo
+    sec ; Set carry flag (to handle borrow)
     sbc #$01
+    ;adc #$02
     sta head_index_lo   ; Move head to the right one tile
-    bcc @no_overflow
-    ;sta head_index_hi   ; carry bit
-    dec head_index_hi
+    lda head_index_hi
+    sbc #$00 ; subtracts 1 if the low byte overflowed
+    sta head_index_hi
+    ;bcc @no_overflow
+    ;dec head_index_hi
     jmp @buttonEnd
     @notLeft:
-    cpx RIGHT
+    cmp #RIGHT
     bne @buttonEnd
     clc
+    lda head_index_lo
     adc #$01
-    sta head_index_lo   ; Move head to the right one tile
-    bcc @no_overflow
-    ;sta head_index_hi   ; carry bit
-    inc head_index_hi
+    sta head_index_lo
+    lda head_index_hi
+    adc #$00    ; adds 1 if the low byte overflowed
+    sta head_index_hi
+    ;sta head_index_lo   ; Move head to the right one tile
+    ;bcc @no_overflow
+    ;inc head_index_hi
     @buttonEnd:
     @no_overflow:
     lda #$01
     sta snake_update
 	@end:
 	rts
-
 .endproc
 
 .proc process_input
