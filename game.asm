@@ -45,6 +45,7 @@ size:           .res 1
 dir:            .res 1
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
+zp_temp_3:      .res 1
 
 .segment "STARTUP" ; avoids warning
 
@@ -397,38 +398,21 @@ reread:
     ;lda #<OAM   ; Low byte of sprite_data address
     ;sta OAM_ADDRESS           ; Store low byte into OAMADDR
 
-    lda #>NT0
-    sta zp_temp_1
-    lda #<NT0
-    sta zp_temp_2
-    
     ldy head_y
-    ;lda #$00
-    beq ydone
-    why:
-    clc
-    lda zp_temp_2
-    adc #$20
-    sta zp_temp_2
-    lda zp_temp_1
-    adc #$00 ; add carry flag, if set
-    sta zp_temp_1
-    dey
-    bne why
-    ydone:
+    ldx head_x
+    jsr tile_to_nt_space_xy
 
-    clc
-    lda zp_temp_2
-    adc head_x
-    sta zp_temp_2
-    lda zp_temp_1
-    adc #$00
-    sta zp_temp_1
+    ;lda zp_temp_1
+    txa
+    sta PPU_ADDRESS
+    tya
+    ;lda zp_temp_2
+    sta PPU_ADDRESS
 
-    lda zp_temp_1
-    sta PPU_ADDRESS
-    lda zp_temp_2
-    sta PPU_ADDRESS
+    ;lda zp_temp_1
+    ;sta PPU_ADDRESS
+    ;lda zp_temp_2
+    ;sta PPU_ADDRESS
 
     ; Calculate position of head of snake
     ;lda #<NT_Y + head_y
@@ -487,6 +471,57 @@ reread:
         ;bit $2002       ; Check if DMA transfer is still in progress
         ;bpl wait_dma    ; Wait until DMA transfer completes
 	rti
+.endproc
+
+; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
+; IN
+; x = x
+; y = y
+; OUT
+; x = HIGH BYTE of nametable
+; y = LOW BYTE of nametable
+.proc tile_to_nt_space_xy
+    lda #>NT0
+    sta zp_temp_1
+    lda #<NT0
+    sta zp_temp_2
+    
+    cpy #$00
+    ;lda #$00
+    beq ydone
+    ; Find a way to index y so we don't have to loop it. Will improve speed significantly.
+    why:
+    clc
+    lda zp_temp_2
+    adc #$20
+    sta zp_temp_2
+    lda zp_temp_1
+    adc #$00 ; add carry flag, if set
+    sta zp_temp_1
+    dey
+    bne why
+    ydone:
+
+    ;ldx zp_temp_3
+    ;lda zp_temp_3
+
+    ; Next we add x to the low byte
+    stx zp_temp_3
+    clc
+    lda zp_temp_2
+    adc zp_temp_3
+    sta zp_temp_2
+    ; and carry to the high byte if needed
+    lda zp_temp_1
+    adc #$00
+    sta zp_temp_1
+
+    ; The output high and low bytes get put back into the registers for consumption
+    ldx zp_temp_1 ; High byte
+    ;stx ; zp_temp_1
+    ldy zp_temp_2 ; Low byte
+    ;sty zp_temp_2
+    rts
 .endproc
 
 .segment "VECTORS"
