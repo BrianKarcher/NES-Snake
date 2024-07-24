@@ -2,7 +2,7 @@
 AS = ca65
 LD = ld65
 
-SOURCES = init.asm constants.asm game.asm
+SOURCES = init.asm constants.asm game.asm board.asm
 OBJECTS = $(SOURCES:.asm=.o)
 OUTPUT = snake.nes
 

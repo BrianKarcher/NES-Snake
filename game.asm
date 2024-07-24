@@ -6,7 +6,8 @@
 ;.importzp frame_done
 ;.importzp frame_count
 ;.importzp head_index_hi, head_index_lo, tail_index, snake_update
-.import init, load_palette
+.import init, load_palette, draw_board
+.export zp_temp_1, zp_temp_2
 
 Message:
 .byte "Hello World!", $00
@@ -34,6 +35,8 @@ cur_dir:        .res 1
 ;nt_tail_y:      .res 1
 size:           .res 1
 dir:            .res 1
+zp_temp_1:      .res 1
+zp_temp_2:      .res 1
 
 .segment "STARTUP" ; avoids warning
 
@@ -132,6 +135,7 @@ sta OAM_ADDRESS           ; Store high byte into OAMADDR
 ; Trigger OAMDMA transfer
 ;lda #%00000001      ; Any non-zero value will initiate DMA transfer
 ;sta $4014           ; Start DMA transfer to OAM (this transfers all sprite data - 256 bytes - from CPU memory to PPU memory)
+jsr draw_board
 
 lda #$80
 ;lda #%10000000
@@ -160,6 +164,7 @@ jsr game
     lda #$0f
     sta head_index_lo
     @loop:
+        ldx #$00
         jsr readjoyx_safe
         jsr process_input
 		jsr snake
