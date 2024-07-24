@@ -12,6 +12,10 @@
 Message:
 .byte "Hello World!", $00
 
+; The start of each row in the name table
+NT_Y:
+    .word   $2000, $2020, $2040, $2060, $2080, $20A0, $20C0, $20E0, $2100, $2120, $2140, $2160, $2180, $21A0, $21C0, $21E0, $2200, $2220, $2240, $2260, $2280, $22A0, $22C0, $22E0, $2300, $2320, $2340, $2360, $2380, $23A0
+
 .segment "HEADER"
 	.byte "NES",26, 2,1, 0,0
 
@@ -19,9 +23,13 @@ Message:
 buttons:        .res 2
 frame_done:     .res 1
 frame_count:    .res 1
-head_index_hi:  .res 1 ; The index into the memory space. We don't use x or y coords.
-head_index_lo:  .res 1
-tail_index:     .res 1
+head_x:         .res 1
+head_y:         .res 1
+;head_index_hi:  .res 1 ; The index into the memory space. We don't use x or y coords.
+;head_index_lo:  .res 1
+;tail_index:     .res 1
+tail_x:         .res 1
+tail_y:         .res 1
 snake_update:   .res 1
 next_dir:       .res 1
 cur_dir:        .res 1
@@ -154,15 +162,15 @@ jsr game
 ; nt_head_x, nt_head_y, nt_tail_x, nt_tail_y
 
 .proc game
-	; lda #$0f
-	; sta head_x
-	; lda #$0e
-	; sta head_y
-	lda 2000 + (32*16 + 15) ; The center of the board
-    lda #$22
-    sta head_index_hi
-    lda #$0f
-    sta head_index_lo
+	lda #$0f
+	sta head_x
+	lda #$0e
+	sta head_y
+	;lda 2000 + (32*16 + 15) ; The center of the board
+    ;lda #$22
+    ;sta head_index_hi
+    ;lda #$0f
+    ;sta head_index_lo
     @loop:
         ldx #$00
         jsr readjoyx_safe
@@ -208,56 +216,60 @@ jsr game
     cmp #UP
     bne @notUp
 	; adc #$01
-    sec ; Set carry flag (to handle borrow)
-    lda head_index_lo
-    sbc #$20 ; 20 hex = 32
+    ;sec ; Set carry flag (to handle borrow)
+    ;lda head_index_lo
+    dec head_y
+    ;sbc #$20 ; 20 hex = 32
     ;adc #$20
-    sta head_index_lo   ; Move head to the right one tile
-    lda head_index_hi
-    sbc #$00 ; subtracts 1 if the low byte overflowed
-    sta head_index_hi
+    ;sta head_index_lo   ; Move head to the right one tile
+    ;lda head_index_hi
+    ;sbc #$00 ; subtracts 1 if the low byte overflowed
+    ;sta head_index_hi
     ;bcc @no_overflow
     ;dec head_index_hi
     jmp @buttonEnd
     @notUp:
     cmp #DOWN
     bne @notDown
-    clc
-    lda head_index_lo
-    adc #$20 ; 20 hex = 32
+    inc head_y
+    ;clc
+    ;lda head_index_lo
+    ;adc #$20 ; 20 hex = 32
     ;adc #$03
-    sta head_index_lo   ; Move head to the right one tile
-    lda head_index_hi
-    adc #$00    ; adds 1 if the low byte overflowed
-    sta head_index_hi
+    ;sta head_index_lo   ; Move head to the right one tile
+    ;lda head_index_hi
+    ;adc #$00    ; adds 1 if the low byte overflowed
+    ;sta head_index_hi
     ;bcc @no_overflow
     ;inc head_index_hi
     jmp @buttonEnd
     @notDown:
     cmp #LEFT
     bne @notLeft
-    clc
-    lda head_index_lo
-    sec ; Set carry flag (to handle borrow)
-    sbc #$01
+    dec head_x
+    ;clc
+    ;lda head_index_lo
+    ;sec ; Set carry flag (to handle borrow)
+    ;sbc #$01
     ;adc #$02
-    sta head_index_lo   ; Move head to the right one tile
-    lda head_index_hi
-    sbc #$00 ; subtracts 1 if the low byte overflowed
-    sta head_index_hi
+    ;sta head_index_lo   ; Move head to the right one tile
+    ;lda head_index_hi
+    ;sbc #$00 ; subtracts 1 if the low byte overflowed
+    ;sta head_index_hi
     ;bcc @no_overflow
     ;dec head_index_hi
     jmp @buttonEnd
     @notLeft:
     cmp #RIGHT
     bne @buttonEnd
-    clc
-    lda head_index_lo
-    adc #$01
-    sta head_index_lo
-    lda head_index_hi
-    adc #$00    ; adds 1 if the low byte overflowed
-    sta head_index_hi
+    inc head_x
+    ;clc
+    ;lda head_index_lo
+    ;adc #$01
+    ;sta head_index_lo
+    ;lda head_index_hi
+    ;adc #$00    ; adds 1 if the low byte overflowed
+    ;sta head_index_hi
     ;sta head_index_lo   ; Move head to the right one tile
     ;bcc @no_overflow
     ;inc head_index_hi
@@ -385,12 +397,61 @@ reread:
     ;lda #<OAM   ; Low byte of sprite_data address
     ;sta OAM_ADDRESS           ; Store low byte into OAMADDR
 
+    lda #>NT0
+    sta zp_temp_1
+    lda #<NT0
+    sta zp_temp_2
+    
+    ldy head_y
+    ;lda #$00
+    beq ydone
+    why:
+    clc
+    lda zp_temp_2
+    adc #$20
+    sta zp_temp_2
+    lda zp_temp_1
+    adc #$00 ; add carry flag, if set
+    sta zp_temp_1
+    dey
+    bne why
+    ydone:
+
+    clc
+    lda zp_temp_2
+    adc head_x
+    sta zp_temp_2
+    lda zp_temp_1
+    adc #$00
+    sta zp_temp_1
+
+    lda zp_temp_1
+    sta PPU_ADDRESS
+    lda zp_temp_2
+    sta PPU_ADDRESS
+
+    ; Calculate position of head of snake
+    ;lda #<NT_Y + head_y
+    ;sta zp_temp_1 ; Store high byte in temp 1
+    ;lda #>NT_Y + head_y
+    ;sta zp_temp_2 ; Store low byte in temp 2
+    ;clc
+    ; We now have the Y coord, add x
+    ;adc head_x
+    ;sta zp_temp_2
+    ;adc #$00
+    ;sta zp_temp_1
+    ;sta PPU_ADDRESS
+    ;lda zp_temp_1
+    ;sta PPU_ADDRESS
+    
+
     ;lda #$22
-    lda head_index_hi
-    sta PPU_ADDRESS
-    lda head_index_lo
+    ;;lda head_index_hi
+    ;;sta PPU_ADDRESS
+    ;;lda head_index_lo
     ;lda #$0f
-    sta PPU_ADDRESS
+    ;;sta PPU_ADDRESS
 
     lda #$68 ; h
     sta PPU_DATA
