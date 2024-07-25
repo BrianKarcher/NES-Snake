@@ -46,6 +46,10 @@ dir:            .res 1
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
 zp_temp_3:      .res 1
+nmt_update_len: .res 1 ; number of bytes in nmt_update buffer
+
+.segment "BSS"
+nmt_update: .res 256 ; nametable update entry buffer for PPU update
 
 .segment "STARTUP" ; avoids warning
 
@@ -276,8 +280,12 @@ jsr game
     ;inc head_index_hi
     @buttonEnd:
     @no_overflow:
-    lda #$01
-    sta snake_update
+    ;lda #$01
+    ;sta snake_update
+    lda #$68 ; h
+    ldx head_x
+    ldy head_y
+    jsr ppu_update_tile
 	@end:
 	rts
 .endproc
@@ -397,17 +405,48 @@ reread:
     ; Set up OAMADDR
     ;lda #<OAM   ; Low byte of sprite_data address
     ;sta OAM_ADDRESS           ; Store low byte into OAMADDR
+    ;.hiby
 
-    ldy head_y
-    ldx head_x
-    jsr tile_to_nt_space_xy
+    ; nametable update
+	ldx #0
+	cpx nmt_update_len
+	bcs @scroll
+	@nmt_update_loop:
+		lda nmt_update, X
+		sta $2006
+		inx
+		lda nmt_update, X
+		sta $2006
+		inx
+		lda nmt_update, X
+		sta $2007
+		inx
+		cpx nmt_update_len
+		bcc @nmt_update_loop
+	lda #0
+	sta nmt_update_len
+    
+    @scroll:
+    ;ldy head_y
+    ;ldx head_x
+    ;ldx 1
+    ;lda NT_Y, x
+    ;sta zp_temp_1
+    ;inx
+    ;lda NT_Y, x
+    ;sta zp_temp_2
+
+    ;sta PPU_ADDRESS
+    ;lda #<NT_Y+head_y, head_x
+    ;sta PPU_ADDRESS
+    ;jsr tile_to_nt_space_xy
 
     ;lda zp_temp_1
-    txa
-    sta PPU_ADDRESS
-    tya
+    ;txa
+    ;sta PPU_ADDRESS
+    ;tya
     ;lda zp_temp_2
-    sta PPU_ADDRESS
+    ;sta PPU_ADDRESS
 
     ;lda zp_temp_1
     ;sta PPU_ADDRESS
@@ -437,8 +476,8 @@ reread:
     ;lda #$0f
     ;;sta PPU_ADDRESS
 
-    lda #$68 ; h
-    sta PPU_DATA
+    ;lda #$68 ; h
+    ;sta PPU_DATA
 
     ; reset scroll location to top-left of screen
     lda #$00
@@ -473,6 +512,36 @@ reread:
 	rti
 .endproc
 
+; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
+ppu_update_tile:
+	pha ; temporarily store A on stack
+	txa
+	pha ; temporarily store X on stack
+	ldx nmt_update_len
+	tya
+	lsr
+	lsr ; every 8 rows is $100 hex in memory. - 32 tiles wide = 20 hex * 8 = 100 hex (remember hex is base 16)
+	lsr ; the 100 hex is important because we need the high byte in the next sta
+	ora #$20 ; high bits of Y + $20. The bits for 20 do not overlap with 1, 2, or 3. So OR-ing them gives us 20, 21, 22, or 23.
+	sta nmt_update, X
+	inx
+	tya
+	asl
+	asl
+	asl
+	asl
+	asl ; 2 ^ 5 = 32. This multiplies Y by 32 (the width of the screen). Y * 32 + x = screen location in memory.
+	sta zp_temp_1
+	pla ; recover X value (but put in A)
+	ora zp_temp_1 ; No bits overlap so OR is a very fast ADC
+	sta nmt_update, X
+	inx
+	pla ; recover A value (tile)
+	sta nmt_update, X
+	inx
+	stx nmt_update_len
+	rts
+
 ; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
 ; IN
 ; x = x
@@ -480,49 +549,43 @@ reread:
 ; OUT
 ; x = HIGH BYTE of nametable
 ; y = LOW BYTE of nametable
-.proc tile_to_nt_space_xy
-    lda #>NT0
-    sta zp_temp_1
-    lda #<NT0
-    sta zp_temp_2
+;.proc tile_to_nt_space_xy
+;    lda #>NT0
+;    sta zp_temp_1
+;    lda #<NT0
+;    sta zp_temp_2
     
-    cpy #$00
-    ;lda #$00
-    beq ydone
+;    cpy #$00
+;    beq ydone
     ; Find a way to index y so we don't have to loop it. Will improve speed significantly.
-    why:
-    clc
-    lda zp_temp_2
-    adc #$20
-    sta zp_temp_2
-    lda zp_temp_1
-    adc #$00 ; add carry flag, if set
-    sta zp_temp_1
-    dey
-    bne why
-    ydone:
-
-    ;ldx zp_temp_3
-    ;lda zp_temp_3
+;    why:
+;    clc
+;    lda zp_temp_2
+;    adc #$20
+;    sta zp_temp_2
+;    lda zp_temp_1
+;    adc #$00 ; add carry flag, if set
+;    sta zp_temp_1
+;    dey
+;    bne why
+;    ydone:
 
     ; Next we add x to the low byte
-    stx zp_temp_3
-    clc
-    lda zp_temp_2
-    adc zp_temp_3
-    sta zp_temp_2
+;    stx zp_temp_3
+;    clc
+;    lda zp_temp_2
+;    adc zp_temp_3
+;    sta zp_temp_2
     ; and carry to the high byte if needed
-    lda zp_temp_1
-    adc #$00
-    sta zp_temp_1
+;    lda zp_temp_1
+;    adc #$00
+;    sta zp_temp_1
 
     ; The output high and low bytes get put back into the registers for consumption
-    ldx zp_temp_1 ; High byte
-    ;stx ; zp_temp_1
-    ldy zp_temp_2 ; Low byte
-    ;sty zp_temp_2
-    rts
-.endproc
+;    ldx zp_temp_1 ; High byte
+;    ldy zp_temp_2 ; Low byte
+;    rts
+;.endproc
 
 .segment "VECTORS"
 	.addr nmi, reset, 0
