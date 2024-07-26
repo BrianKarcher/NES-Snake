@@ -3,7 +3,6 @@
 
 ;.export game
 ;.export nmi
-;.importzp frame_done
 ;.importzp frame_count
 ;.importzp head_index_hi, head_index_lo, tail_index, snake_update
 .import init, load_palette, draw_board
@@ -23,8 +22,7 @@ NT_Y:
 nmi_lock:       .res 1 ; prevents NMI re-entry
 nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
 buttons:        .res 2
-frame_done:     .res 1
-frame_count:    .res 1
+nmi_count:    .res 1
 head_x:         .res 1
 head_y:         .res 1
 ;head_index_hi:  .res 1 ; The index into the memory space. We don't use x or y coords.
@@ -192,7 +190,7 @@ jsr game
 			;cpx #$a
 			;bne @loop2
 		; inc $00
-		jsr wait_frame
+		jsr ppu_update
 		; inc $00
 		; inc $0203
 	jmp @loop
@@ -201,12 +199,12 @@ jsr game
 
 .proc snake
     ;rts
-	lda frame_count
+	lda nmi_count
 	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
     cmp #$10 ; snake speed
 	bne @end
 	lda #$00
-	sta frame_count ; reset frame counter
+	sta nmi_count ; reset frame counter
     lda next_dir
     sta cur_dir
 
@@ -294,23 +292,23 @@ jsr game
     ldy head_y
 
     jsr tile_to_nt_space_xy
-    txa
+    ;txa
     ;lda #>NT0
-    sta PPU_ADDRESS
+    ;sta PPU_ADDRESS
     ;lda #<NT0
     ;lda #$0f
     ;lda #$10
-    tya
-    sta PPU_ADDRESS
-    lda PPU_DATA
+    ;tya
+    ;sta PPU_ADDRESS
+    ;lda PPU_DATA
 
     ; Landed on food?
-    cmp $69
-    bne @end
+    ;cmp $69
+    ;bne @end
     ; Place new food at 03, 20
-    ldx $03
-    ldy $14 ; 20
-    jsr ppu_update_tile
+    ;ldx $03
+    ;ldy $14 ; 20
+    ;jsr ppu_update_tile
 	@end:
 	rts
 .endproc
@@ -345,14 +343,6 @@ jsr game
     sta next_dir
     @end:
     rts
-.endproc
-
-.proc wait_frame
-    inc frame_done          ; Make it non-zero
-    @loop:
-        lda frame_done
-        bne @loop           ; Wait for frame_done to become zero again
-        rts
 .endproc
 
 readjoyx2:
@@ -406,6 +396,22 @@ reread:
 	:
 	lda #1
 	sta nmi_lock
+
+    ; increment frame counter
+	inc nmi_count
+	;
+	lda nmi_ready
+	bne :+ ; nmi_ready == 0 not ready to update PPU
+		jmp ppu_update_end
+	:
+	cmp #2 ; nmi_ready == 2 turns rendering off
+	bne :+
+		lda #%00000000
+		sta $2001
+		ldx #0
+		stx nmi_ready
+		jmp ppu_update_end
+	:
 
     ; Define RGB values for a sprite palette (example)
     ; palette:
@@ -540,14 +546,15 @@ reread:
     lda #>OAM                   ; Store high byte into OAM_DMA
     sta OAM_DMA
 
-    lda #$0
-    sta frame_done      ; Ding fries are done
-	inc frame_count
+    ; flag PPU update complete
+	ldx #0
+	stx nmi_ready
 
+ppu_update_end:
+	; if this engine had music/sound, this would be a good place to play it
 	; unlock re-entry flag
 	lda #0
 	sta nmi_lock
-
 nmi_end:
 	; restore registers and return
 	pla
@@ -566,6 +573,23 @@ nmi_end:
 ; ppu_update: waits until next NMI, turns rendering on (if not already), uploads OAM, palette, and nametable update to PPU
 ppu_update:
 	lda #1
+	sta nmi_ready
+	:
+		lda nmi_ready
+		bne :-
+	rts
+
+; ppu_skip: waits until next NMI, does not update PPU
+ppu_skip:
+	lda nmi_count
+	:
+		cmp nmi_count
+		beq :-
+	rts
+
+; ppu_off: waits until next NMI, turns rendering off (now safe to write PPU directly via $2007)
+ppu_off:
+	lda #2
 	sta nmi_ready
 	:
 		lda nmi_ready
