@@ -20,6 +20,8 @@ NT_Y:
 	.byte "NES",26, 2,1, 0,0
 
 .segment "ZEROPAGE"
+nmi_lock:       .res 1 ; prevents NMI re-entry
+nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
 buttons:        .res 2
 frame_done:     .res 1
 frame_count:    .res 1
@@ -286,6 +288,29 @@ jsr game
     ldx head_x
     ldy head_y
     jsr ppu_update_tile
+
+    ; Check tile ran into
+    ldx head_x
+    ldy head_y
+
+    jsr tile_to_nt_space_xy
+    txa
+    ;lda #>NT0
+    sta PPU_ADDRESS
+    ;lda #<NT0
+    ;lda #$0f
+    ;lda #$10
+    tya
+    sta PPU_ADDRESS
+    lda PPU_DATA
+
+    ; Landed on food?
+    cmp $69
+    bne @end
+    ; Place new food at 03, 20
+    ldx $03
+    ldy $14 ; 20
+    jsr ppu_update_tile
 	@end:
 	rts
 .endproc
@@ -368,6 +393,20 @@ reread:
     rts
 
 .proc nmi
+	; save registers
+	pha
+	txa
+	pha
+	tya
+	pha
+	; prevent NMI re-entry
+	lda nmi_lock
+	beq :+
+		jmp nmi_end
+	:
+	lda #1
+	sta nmi_lock
+
     ; Define RGB values for a sprite palette (example)
     ; palette:
 
@@ -505,12 +544,87 @@ reread:
     sta frame_done      ; Ding fries are done
 	inc frame_count
 
+	; unlock re-entry flag
+	lda #0
+	sta nmi_lock
+
+nmi_end:
+	; restore registers and return
+	pla
+	tay
+	pla
+	tax
+	pla
+
     ; Wait for DMA transfer to complete (optional)
     ; wait_dma:
         ;bit $2002       ; Check if DMA transfer is still in progress
         ;bpl wait_dma    ; Wait until DMA transfer completes
 	rti
 .endproc
+
+; ppu_update: waits until next NMI, turns rendering on (if not already), uploads OAM, palette, and nametable update to PPU
+ppu_update:
+	lda #1
+	sta nmi_ready
+	:
+		lda nmi_ready
+		bne :-
+	rts
+
+; ppu_address_tile: use with rendering off, sets memory address to tile at X/Y, ready for a $2007 write
+;   Y =  0- 31 nametable $2000
+;   Y = 32- 63 nametable $2400
+;   Y = 64- 95 nametable $2800
+;   Y = 96-127 nametable $2C00
+ppu_address_tile:
+	lda $2002 ; reset latch
+	tya
+	lsr
+	lsr
+	lsr
+	ora #$20 ; high bits of Y + $20
+	sta $2006
+	tya
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta zp_temp_1
+	txa
+	ora zp_temp_1
+	sta $2006 ; low bits of Y + X
+	rts
+
+; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
+; IN
+; x = x
+; y = y
+; OUT
+; x = HIGH BYTE of nametable
+; y = LOW BYTE of nametable
+tile_to_nt_space_xy:
+	;lda $2002 ; reset latch
+	tya
+	lsr
+	lsr
+	lsr
+	ora #$20 ; high bits of Y + $20
+	sta zp_temp_1
+	tya
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta zp_temp_3
+	txa
+	ora zp_temp_3
+    ldx zp_temp_1
+    tay
+	;sta zp_temp_2 ; low bits of Y + X
+	rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
 ppu_update_tile:
@@ -540,6 +654,25 @@ ppu_update_tile:
 	sta nmt_update, X
 	inx
 	stx nmt_update_len
+	rts
+
+; ppu_update_byte: like ppu_update_tile, but X/Y makes the high/low bytes of the PPU address to write
+;    this may be useful for updating attribute tiles
+ppu_update_byte:
+	pha ; temporarily store A on stack
+	tya
+	pha ; temporarily store Y on stack
+	ldy nmt_update_len
+	txa
+	sta nmt_update, Y
+	iny
+	pla ; recover Y value (but put in Y)
+	sta nmt_update, Y
+	iny
+	pla ; recover A value (byte)
+	sta nmt_update, Y
+	iny
+	sty nmt_update_len
 	rts
 
 ; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
