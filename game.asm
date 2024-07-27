@@ -6,7 +6,7 @@
 ;.importzp frame_count
 ;.importzp head_index_hi, head_index_lo, tail_index, snake_update
 .import init, load_palette, draw_board
-.export zp_temp_1, zp_temp_2
+.export zp_temp_1, zp_temp_2, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
 
 Message:
 .byte "Hello World!", $00
@@ -21,7 +21,7 @@ NT_Y:
 .segment "ZEROPAGE"
 nmi_lock:       .res 1 ; prevents NMI re-entry
 nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
-buttons:        .res 2
+buttons:        .res 1
 nmi_count:    .res 1
 head_x:         .res 1
 head_y:         .res 1
@@ -33,12 +33,8 @@ tail_y:         .res 1
 snake_update:   .res 1
 next_dir:       .res 1
 cur_dir:        .res 1
-;head_x:         .res 1
-;head_y:         .res 1
 ;nt_head_x:      .res 1
 ;nt_head_y:      .res 1
-;tail_x:         .res 1
-;tail_y:         .res 1
 ;nt_tail_x:      .res 1
 ;nt_tail_y:      .res 1
 size:           .res 1
@@ -47,9 +43,27 @@ zp_temp_1:      .res 1
 zp_temp_2:      .res 1
 zp_temp_3:      .res 1
 nmt_update_len: .res 1 ; number of bytes in nmt_update buffer
+start_low:    .res 1  ; Low byte of start address
+start_high:   .res 1  ; High byte of start address
+end_low:      .res 1  ; Low byte of end address
+end_high:     .res 1  ; High byte of end address
+current_low:  .res 1  ; Low byte of current address, this is a memory pointer for indirect indexing
+current_high: .res 1  ; High byte of current address
+start_low_2:   .res 1
+start_high_2:  .res 1
+current_low_2: .res 1
+current_high_2: .res 1
 
-.segment "BSS"
+.segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
+screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
+                        ; We sacrifice memory for speed, it takes a while to check collisions on a 100-size snake if not in screen mirror memory.
+                     ; The snake is mutable background and collides with itself.
+;screen0:    .res 256
+;screen1:    .res 256
+;screen2:    .res 256
+;screen3:    .res 192
+
 
 .segment "STARTUP" ; avoids warning
 
