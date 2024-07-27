@@ -1,10 +1,6 @@
 ; main game Loop
 .include "constants.asm"
 
-;.export game
-;.export nmi
-;.importzp frame_count
-;.importzp head_index_hi, head_index_lo, tail_index, snake_update
 .import init, load_palette, draw_board
 .export zp_temp_1, zp_temp_2, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
 
@@ -22,36 +18,30 @@ NT_Y:
 nmi_lock:       .res 1 ; prevents NMI re-entry
 nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
 buttons:        .res 1
-nmi_count:    .res 1
+nmi_count:      .res 1
+tick_count:     .res 1
 head_x:         .res 1
 head_y:         .res 1
-;head_index_hi:  .res 1 ; The index into the memory space. We don't use x or y coords.
-;head_index_lo:  .res 1
-;tail_index:     .res 1
 tail_x:         .res 1
 tail_y:         .res 1
 snake_update:   .res 1
 next_dir:       .res 1
 cur_dir:        .res 1
-;nt_head_x:      .res 1
-;nt_head_y:      .res 1
-;nt_tail_x:      .res 1
-;nt_tail_y:      .res 1
 size:           .res 1
 dir:            .res 1
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
 zp_temp_3:      .res 1
 nmt_update_len: .res 1 ; number of bytes in nmt_update buffer
-start_low:    .res 1  ; Low byte of start address
-start_high:   .res 1  ; High byte of start address
-end_low:      .res 1  ; Low byte of end address
-end_high:     .res 1  ; High byte of end address
-current_low:  .res 1  ; Low byte of current address, this is a memory pointer for indirect indexing
-current_high: .res 1  ; High byte of current address
-start_low_2:   .res 1
-start_high_2:  .res 1
-current_low_2: .res 1
+start_low:      .res 1  ; Low byte of start address
+start_high:     .res 1  ; High byte of start address
+end_low:        .res 1  ; Low byte of end address
+end_high:       .res 1  ; High byte of end address
+current_low:    .res 1  ; Low byte of current address, this is a memory pointer for indirect indexing
+current_high:   .res 1  ; High byte of current address
+start_low_2:    .res 1
+start_high_2:   .res 1
+current_low_2:  .res 1
 current_high_2: .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -59,10 +49,6 @@ nmt_update: .res 256 ; nametable update entry buffer for PPU update
 screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
                         ; We sacrifice memory for speed, it takes a while to check collisions on a 100-size snake if not in screen mirror memory.
                      ; The snake is mutable background and collides with itself.
-;screen0:    .res 256
-;screen1:    .res 256
-;screen2:    .res 256
-;screen3:    .res 192
 
 
 .segment "STARTUP" ; avoids warning
@@ -117,31 +103,7 @@ reset:
     bit $2002
     bpl @vblankwait2
 
-; initialize PPU OAM
-;ldx #$00
-;stx OAM_ADDRESS ; $00
-;lda #$02 ; use page $0200-$02ff
-;sta OAM_DMA
-
 jsr load_palette
-
-; lda #$21
-; sta PPU_ADDRESS
-; lda #$ca
-; sta PPU_ADDRESS
-
-    ;lda 2000 + (32*16 + 15)
-    ;lda <$#09E0
-
-; Loop:
-;     LDA Message,X     ; Load the byte at Message + X into A
-;     BEQ Done          ; If it's the null terminator, jump to Done
-;     STA PPU_DATA       ; Store the byte in memory at $0200 + Y
-;     INX               ; Increment X to point to the next character in the string
-    ;INY               ; Increment Y to point to the next memory location
-;     JMP Loop          ; Repeat the loop
-
-; Done:
 
 lda #$c0
 sta $0200
@@ -160,13 +122,9 @@ lda #$20            ; High byte of sprite_data address
 sta OAM_ADDRESS           ; Store high byte into OAMADDR
 
 ; Trigger OAMDMA transfer
-;lda #%00000001      ; Any non-zero value will initiate DMA transfer
-;sta $4014           ; Start DMA transfer to OAM (this transfers all sprite data - 256 bytes - from CPU memory to PPU memory)
 jsr draw_board
 
 lda #$80
-;lda #%10000000
-;inx        ; now X = 1
 sta $2000  ; enable NMI
 lda #$1e
 sta $2001  ; enable rendering
@@ -177,125 +135,54 @@ sta cur_dir
 sta next_dir
 jsr game
 
-; .importzp head_x, head_y, size, tail_x, tail_y, dir
-; nt_head_x, nt_head_y, nt_tail_x, nt_tail_y
-
 .proc game
 	lda #$0f
 	sta head_x
 	lda #$0e
 	sta head_y
-	;lda 2000 + (32*16 + 15) ; The center of the board
-    ;lda #$22
-    ;sta head_index_hi
-    ;lda #$0f
-    ;sta head_index_lo
     @loop:
         ldx #$00
         jsr readjoyx_safe
         jsr process_input
 		jsr snake
-		;ldx #$0
-		; @loop2:
-			; lda #$cf
-			;txa
-			;sta $000, x
-			;inx
-			;cpx #$a
-			;bne @loop2
-		; inc $00
 		jsr ppu_update
-		; inc $00
-		; inc $0203
 	jmp @loop
-	;rts
 .endproc
 
 .proc snake
-    ;rts
-	lda nmi_count
+	lda tick_count
 	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
     cmp #$10 ; snake speed
 	bne @end
 	lda #$00
-	sta nmi_count ; reset frame counter
+	sta tick_count ; reset frame counter
     lda next_dir
     sta cur_dir
 
-    ;;;;
-    ;clc
-    ;adc #$01
-    ;sta head_index_lo   ; Move head to the right one tile
-    ;bcc @no_overflow
-    ;inc head_index_hi
-    ;jmp @buttonEnd
-    ;;;;;
-
-    ;lda cur_dir
     cmp #UP
     bne @notUp
-	; adc #$01
-    ;sec ; Set carry flag (to handle borrow)
-    ;lda head_index_lo
+
     dec head_y
-    ;sbc #$20 ; 20 hex = 32
-    ;adc #$20
-    ;sta head_index_lo   ; Move head to the right one tile
-    ;lda head_index_hi
-    ;sbc #$00 ; subtracts 1 if the low byte overflowed
-    ;sta head_index_hi
-    ;bcc @no_overflow
-    ;dec head_index_hi
     jmp @buttonEnd
     @notUp:
     cmp #DOWN
     bne @notDown
     inc head_y
-    ;clc
-    ;lda head_index_lo
-    ;adc #$20 ; 20 hex = 32
-    ;adc #$03
-    ;sta head_index_lo   ; Move head to the right one tile
-    ;lda head_index_hi
-    ;adc #$00    ; adds 1 if the low byte overflowed
-    ;sta head_index_hi
-    ;bcc @no_overflow
-    ;inc head_index_hi
+
     jmp @buttonEnd
     @notDown:
     cmp #LEFT
     bne @notLeft
     dec head_x
-    ;clc
-    ;lda head_index_lo
-    ;sec ; Set carry flag (to handle borrow)
-    ;sbc #$01
-    ;adc #$02
-    ;sta head_index_lo   ; Move head to the right one tile
-    ;lda head_index_hi
-    ;sbc #$00 ; subtracts 1 if the low byte overflowed
-    ;sta head_index_hi
-    ;bcc @no_overflow
-    ;dec head_index_hi
+
     jmp @buttonEnd
     @notLeft:
     cmp #RIGHT
     bne @buttonEnd
     inc head_x
-    ;clc
-    ;lda head_index_lo
-    ;adc #$01
-    ;sta head_index_lo
-    ;lda head_index_hi
-    ;adc #$00    ; adds 1 if the low byte overflowed
-    ;sta head_index_hi
-    ;sta head_index_lo   ; Move head to the right one tile
-    ;bcc @no_overflow
-    ;inc head_index_hi
+
     @buttonEnd:
     @no_overflow:
-    ;lda #$01
-    ;sta snake_update
     lda #$68 ; h
     ldx head_x
     ldy head_y
@@ -306,23 +193,7 @@ jsr game
     ldy head_y
 
     jsr tile_to_nt_space_xy
-    ;txa
-    ;lda #>NT0
-    ;sta PPU_ADDRESS
-    ;lda #<NT0
-    ;lda #$0f
-    ;lda #$10
-    ;tya
-    ;sta PPU_ADDRESS
-    ;lda PPU_DATA
 
-    ; Landed on food?
-    ;cmp $69
-    ;bne @end
-    ; Place new food at 03, 20
-    ;ldx $03
-    ;ldy $14 ; 20
-    ;jsr ppu_update_tile
 	@end:
 	rts
 .endproc
@@ -413,6 +284,9 @@ reread:
 
     ; increment frame counter
 	inc nmi_count
+    ; nmi_count is the global game tick (timer). It is for game control. It should NEVER be changed aside from the line above.
+    ; tick_count tracks the snake's speed and is reset to zero when the snake updates.
+    inc tick_count
 	;
 	lda nmi_ready
 	bne :+ ; nmi_ready == 0 not ready to update PPU
@@ -486,58 +360,6 @@ reread:
 	sta nmt_update_len
     
     @scroll:
-    ;ldy head_y
-    ;ldx head_x
-    ;ldx 1
-    ;lda NT_Y, x
-    ;sta zp_temp_1
-    ;inx
-    ;lda NT_Y, x
-    ;sta zp_temp_2
-
-    ;sta PPU_ADDRESS
-    ;lda #<NT_Y+head_y, head_x
-    ;sta PPU_ADDRESS
-    ;jsr tile_to_nt_space_xy
-
-    ;lda zp_temp_1
-    ;txa
-    ;sta PPU_ADDRESS
-    ;tya
-    ;lda zp_temp_2
-    ;sta PPU_ADDRESS
-
-    ;lda zp_temp_1
-    ;sta PPU_ADDRESS
-    ;lda zp_temp_2
-    ;sta PPU_ADDRESS
-
-    ; Calculate position of head of snake
-    ;lda #<NT_Y + head_y
-    ;sta zp_temp_1 ; Store high byte in temp 1
-    ;lda #>NT_Y + head_y
-    ;sta zp_temp_2 ; Store low byte in temp 2
-    ;clc
-    ; We now have the Y coord, add x
-    ;adc head_x
-    ;sta zp_temp_2
-    ;adc #$00
-    ;sta zp_temp_1
-    ;sta PPU_ADDRESS
-    ;lda zp_temp_1
-    ;sta PPU_ADDRESS
-    
-
-    ;lda #$22
-    ;;lda head_index_hi
-    ;;sta PPU_ADDRESS
-    ;;lda head_index_lo
-    ;lda #$0f
-    ;;sta PPU_ADDRESS
-
-    ;lda #$68 ; h
-    ;sta PPU_DATA
-
     ; reset scroll location to top-left of screen
     lda #$00
     sta PPU_SCROLL
@@ -547,13 +369,7 @@ reread:
     bne oam
     lda #$00
     sta snake_update
-    ;lda #>head_index
-    ;sta PPU_ADDRESS
-    ;lda #<head_index
-    ;sta PPU_ADDRESS
 
-
-    ;lda #$20            ; High byte of sprite_data address
     oam:
     lda #$0                     ; Start writing at OAM_ADDRESS 0 in the PPU
     sta OAM_ADDRESS           ; Store high byte into OAMADDR
@@ -712,51 +528,6 @@ ppu_update_byte:
 	iny
 	sty nmt_update_len
 	rts
-
-; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
-; IN
-; x = x
-; y = y
-; OUT
-; x = HIGH BYTE of nametable
-; y = LOW BYTE of nametable
-;.proc tile_to_nt_space_xy
-;    lda #>NT0
-;    sta zp_temp_1
-;    lda #<NT0
-;    sta zp_temp_2
-    
-;    cpy #$00
-;    beq ydone
-    ; Find a way to index y so we don't have to loop it. Will improve speed significantly.
-;    why:
-;    clc
-;    lda zp_temp_2
-;    adc #$20
-;    sta zp_temp_2
-;    lda zp_temp_1
-;    adc #$00 ; add carry flag, if set
-;    sta zp_temp_1
-;    dey
-;    bne why
-;    ydone:
-
-    ; Next we add x to the low byte
-;    stx zp_temp_3
-;    clc
-;    lda zp_temp_2
-;    adc zp_temp_3
-;    sta zp_temp_2
-    ; and carry to the high byte if needed
-;    lda zp_temp_1
-;    adc #$00
-;    sta zp_temp_1
-
-    ; The output high and low bytes get put back into the registers for consumption
-;    ldx zp_temp_1 ; High byte
-;    ldy zp_temp_2 ; Low byte
-;    rts
-;.endproc
 
 .segment "VECTORS"
 	.addr nmi, reset, 0
