@@ -134,6 +134,17 @@ sta next_dir
 jsr game
 
 .proc game
+    jsr initialize_variables
+
+    @loop:
+        ldx #$00
+        jsr readjoyx_safe
+		jsr process_snake
+		jsr ppu_update
+	jmp @loop
+.endproc
+
+.proc initialize_variables
     lda #$03
     sta target_size
 	lda #$0f
@@ -142,12 +153,10 @@ jsr game
 	lda #$0e
 	sta head_y
     sta new_y
-    @loop:
-        ldx #$00
-        jsr readjoyx_safe
-		jsr process_snake
-		jsr ppu_update
-	jmp @loop
+    lda #$00
+    sta head_index
+    sta tail_index
+    rts
 .endproc
 
 .proc process_snake
@@ -195,32 +204,13 @@ jsr game
 .endproc
 
 .proc move_snake
-    ; Move head, place on nmi queue
-    lda #$68 ; h
-    ldx new_x
-    stx head_x
-    ldy new_y
-    sty head_y
-    jsr ppu_update_tile
-
     ; Check tile ran into
     ldx new_x
     ldy new_y
 
     jsr tile_to_screen_space_xy
-    ;txa
-    tya
-    clc
-    adc #<screen
-    sta current_low_2
-    txa
-    ;clc
-    adc #>screen ; adds carry flag if needed
-    ;adc x
-    sta current_high_2
-    ;ora #$20 ; high bits of Y + $20
-    ;sta current_high
-    ;sty current_low
+    stx current_high_2
+    sty current_low_2
 
     ldy #$00
     lda (current_low_2), y
@@ -232,6 +222,30 @@ jsr game
     @no_coll:
     lda #$68 ; h
     sta (current_low_2), y
+
+    ; Record the movement to the "linked list"
+    ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
+    inc head_index
+    lda cur_dir ; We just store directions so the tail can follow along
+    ldy head_index
+    sta SNAKE, y
+
+    ; Move tail?
+    lda size
+    cmp target_size
+    bne grow
+        ; We are at target size, move the tail along
+        
+    grow:
+
+    tail_done:
+    ; Move head, place on nmi queue
+    lda #$68 ; h
+    ldx new_x
+    stx head_x
+    ldy new_y
+    sty head_y
+    jsr ppu_update_tile
 
 	rts
 .endproc
@@ -519,8 +533,28 @@ tile_to_screen_space_xy:
 	ora zp_temp_3
     ldx zp_temp_1
     tay
-	;sta zp_temp_2 ; low bits of Y + X
+    jsr convert_screen_space_to_screen_memory
 	rts
+
+; Screen Space starts at 0. This moves the pointers so they start at the memory location for the screen in CPU memory
+convert_screen_space_to_screen_memory:
+    ;txa
+    tya ; Low byte
+    clc
+    adc #<screen
+    tay
+    ;sta current_low_2
+    txa ; High byte
+    ;clc
+    adc #>screen ; adds carry flag if needed
+    ;adc x
+    ;sta current_high_2
+    tax
+    ;ora #$20 ; high bits of Y + $20
+    ;sta current_high
+    ;sty current_low
+	;sta zp_temp_2 ; low bits of Y + X
+    rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
 ppu_update_tile:
