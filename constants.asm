@@ -6,6 +6,7 @@ PPU_SCROLL      = $2005
 ;sprite_data     = $0200
 OAM = $0200
 NT0             = $2000 ; Nametable Zero
+SNAKE           = $0300
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20
 JOYPAD1         = $4016

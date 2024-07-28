@@ -4,13 +4,6 @@
 .import init, load_palette, draw_board
 .export zp_temp_1, zp_temp_2, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
 
-Message:
-.byte "Hello World!", $00
-
-; The start of each row in the name table
-NT_Y:
-    .word   $2000, $2020, $2040, $2060, $2080, $20A0, $20C0, $20E0, $2100, $2120, $2140, $2160, $2180, $21A0, $21C0, $21E0, $2200, $2220, $2240, $2260, $2280, $22A0, $22C0, $22E0, $2300, $2320, $2340, $2360, $2380, $23A0
-
 .segment "HEADER"
 	.byte "NES",26, 2,1, 0,0
 
@@ -22,12 +15,17 @@ nmi_count:      .res 1
 tick_count:     .res 1
 head_x:         .res 1
 head_y:         .res 1
+new_x:          .res 1
+new_y:          .res 1
 tail_x:         .res 1
 tail_y:         .res 1
 snake_update:   .res 1
 next_dir:       .res 1
 cur_dir:        .res 1
+target_size:    .res 1
 size:           .res 1
+head_index:     .res 1
+tail_index:     .res 1
 dir:            .res 1
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
@@ -136,66 +134,110 @@ sta next_dir
 jsr game
 
 .proc game
+    lda #$03
+    sta target_size
 	lda #$0f
 	sta head_x
+    sta new_x
 	lda #$0e
 	sta head_y
+    sta new_y
     @loop:
         ldx #$00
         jsr readjoyx_safe
-        jsr process_input
-		jsr snake
+		jsr process_snake
 		jsr ppu_update
 	jmp @loop
 .endproc
 
-.proc snake
+.proc process_snake
 	lda tick_count
 	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
     cmp #$10 ; snake speed
 	bne @end
-	lda #$00
+    lda #$00
 	sta tick_count ; reset frame counter
+    jsr process_input
+    jsr move_snake_on_input
+    jsr move_snake
+    @end:
+    rts
+.endproc
+
+.proc move_snake_on_input
     lda next_dir
     sta cur_dir
 
     cmp #UP
     bne @notUp
-
-    dec head_y
+    dec new_y
     jmp @buttonEnd
+
     @notUp:
     cmp #DOWN
     bne @notDown
-    inc head_y
-
+    inc new_y
     jmp @buttonEnd
+
     @notDown:
     cmp #LEFT
     bne @notLeft
-    dec head_x
-
+    dec new_x
     jmp @buttonEnd
+
     @notLeft:
     cmp #RIGHT
     bne @buttonEnd
-    inc head_x
+    inc new_x
 
     @buttonEnd:
-    @no_overflow:
+    rts
+.endproc
+
+.proc move_snake
+    ; Move head, place on nmi queue
     lda #$68 ; h
-    ldx head_x
-    ldy head_y
+    ldx new_x
+    stx head_x
+    ldy new_y
+    sty head_y
     jsr ppu_update_tile
 
     ; Check tile ran into
-    ldx head_x
-    ldy head_y
+    ldx new_x
+    ldy new_y
 
-    jsr tile_to_nt_space_xy
+    jsr tile_to_screen_space_xy
+    ;txa
+    tya
+    clc
+    adc #<screen
+    sta current_low_2
+    txa
+    ;clc
+    adc #>screen ; adds carry flag if needed
+    ;adc x
+    sta current_high_2
+    ;ora #$20 ; high bits of Y + $20
+    ;sta current_high
+    ;sty current_low
 
-	@end:
+    ldy #$00
+    lda (current_low_2), y
+    cmp #$68
+    bne @no_coll
+        @forever:
+        jmp @forever
+    ; Check tile ran into
+    @no_coll:
+    lda #$68 ; h
+    sta (current_low_2), y
+
 	rts
+.endproc
+
+.proc process_collision_detection
+
 .endproc
 
 .proc process_input
@@ -456,15 +498,15 @@ ppu_address_tile:
 ; x = x
 ; y = y
 ; OUT
-; x = HIGH BYTE of nametable
-; y = LOW BYTE of nametable
-tile_to_nt_space_xy:
+; x = HIGH BYTE of screen space
+; y = LOW BYTE of screen space
+tile_to_screen_space_xy:
 	;lda $2002 ; reset latch
 	tya
 	lsr
 	lsr
 	lsr
-	ora #$20 ; high bits of Y + $20
+	;ora #$20 ; high bits of Y + $20
 	sta zp_temp_1
 	tya
 	asl

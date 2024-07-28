@@ -12,7 +12,7 @@
     lda #$00
     sta PPU_ADDRESS
     ; load 8 palettes (4 bg, 4 sprite)
-    ldx 8
+    ldx #$8
     palette_loop:
         lda #$0f ; black
         sta PPU_DATA
