@@ -25,7 +25,7 @@ cur_dir:        .res 1
 target_size:    .res 1
 size:           .res 1
 head_index:     .res 1
-tail_index:     .res 1
+tail_index:     .res 1 ; 0x17
 dir:            .res 1
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
@@ -145,13 +145,15 @@ jsr game
 .endproc
 
 .proc initialize_variables
-    lda #$03
+    lda #$07
     sta target_size
 	lda #$0f
 	sta head_x
+    sta tail_x
     sta new_x
 	lda #$0e
 	sta head_y
+    sta tail_y
     sta new_y
     lda #$00
     sta head_index
@@ -225,20 +227,11 @@ jsr game
 
     ; Record the movement to the "linked list"
     ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
-    inc head_index
     lda cur_dir ; We just store directions so the tail can follow along
     ldy head_index
     sta SNAKE, y
+    inc head_index
 
-    ; Move tail?
-    lda size
-    cmp target_size
-    bne grow
-        ; We are at target size, move the tail along
-        
-    grow:
-
-    tail_done:
     ; Move head, place on nmi queue
     lda #$68 ; h
     ldx new_x
@@ -246,8 +239,63 @@ jsr game
     ldy new_y
     sty head_y
     jsr ppu_update_tile
-
+    jsr process_tail
 	rts
+.endproc
+
+.proc process_tail
+    ; Move tail?
+    lda size
+    cmp target_size
+    bne grow
+        ; We are at target size, move the tail along
+
+        ; Move the tail
+        ldy tail_index
+        inc tail_index
+        lda SNAKE, Y
+        cmp #UP
+        bne @not_up
+            dec tail_y
+            jmp tail_done
+        @not_up:
+        cmp #DOWN
+        bne @not_down
+            inc tail_y
+            jmp tail_done
+        @not_down:
+        cmp #LEFT
+        bne @not_left
+            dec tail_x
+            jmp tail_done
+        @not_left:
+            inc tail_x
+            jmp tail_done
+        jmp tail_done
+    grow:
+        inc size
+        jmp tail_end
+
+    tail_done:
+        ; Remove tail via nmi queue
+        lda #$00 ; h
+        ldx tail_x
+        ldy tail_y
+        jsr ppu_update_tile
+
+        ldx tail_x
+        ldy tail_y
+
+        jsr tile_to_screen_space_xy
+        stx current_high_2
+        sty current_low_2
+        ldy #$00
+        ; Erase the tail
+        ; This is optional, more for debugging
+        lda #$00
+        sta (current_low_2), y
+    tail_end:
+    rts
 .endproc
 
 .proc process_collision_detection
@@ -533,8 +581,8 @@ tile_to_screen_space_xy:
 	ora zp_temp_3
     ldx zp_temp_1
     tay
-    jsr convert_screen_space_to_screen_memory
-	rts
+    ;jsr convert_screen_space_to_screen_memory
+	;rts
 
 ; Screen Space starts at 0. This moves the pointers so they start at the memory location for the screen in CPU memory
 convert_screen_space_to_screen_memory:
