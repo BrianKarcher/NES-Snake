@@ -4,8 +4,41 @@
 .import init, load_palette, draw_board
 .export zp_temp_1, zp_temp_2, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
 
+; .segment "HEADER"
+; 	.byte "NES",26, 2,1, 0,0
+
 .segment "HEADER"
-	.byte "NES",26, 2,1, 0,0
+
+INES_MAPPER = 1 ; 0 = NROM, 1 = MMC 1
+INES_MIRROR = 1 ; 0 = horizontal mirroring, 1 = vertical mirroring
+INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
+
+.byte 'N', 'E', 'S', $1A ; ID
+.byte $02 ; 16k PRG chunk count
+.byte $01 ; 8k CHR chunk count
+.byte INES_MIRROR | (INES_SRAM << 1) | ((INES_MAPPER & $f) << 4)
+.byte (INES_MAPPER & %11110000)
+.byte $0, $0, $0, $0, $0, $0, $0, $0 ; padding
+
+; .segment "HEADER"
+; .byte 'N', 'E', 'S', $1A  ; NES header magic number
+; .byte 2                   ; Number of 16KB PRG ROM banks
+; .byte 1                   ; Number of 8KB CHR ROM banks
+; .byte $01                   ; Mapper, mirroring, battery, trainer
+; .byte $00                   ; Mapper, VS/Playchoice, NES 2.0
+; .byte 0, 0, 0, 0, 0, 0, 0, 0 ; Padding bytes
+
+; .segment "HEADER"
+; .byte "NES", $1A       ; iNES file identifier
+; .byte 2                ; Number of 16 KB PRG-ROM banks
+; .byte 1                ; Number of 8 KB CHR-ROM banks
+; ;.byte %00000010        ; Flags 6: Mapper, mirroring, battery, trainer
+; ;.byte 41
+; .byte 40
+; .byte %00000000        ; Flags 7: Mapper, VS/Playchoice, NES 2.0
+; .byte 0                ; Flags 8: PRG-RAM size (rarely used)
+; .byte 0                ; Flags 9: TV system (rarely used)
+; .byte 0, 0, 0, 0, 0, 0    ; Unused padding bytes
 
 .segment "ZEROPAGE"
 nmi_lock:       .res 1 ; prevents NMI re-entry
@@ -41,7 +74,9 @@ start_low_2:    .res 1
 start_high_2:   .res 1
 current_low_2:  .res 1
 current_high_2: .res 1
+snake_speed:    .res 1
 
+;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
 screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
@@ -58,6 +93,20 @@ reset:
     stx $4017  ; disable APU frame IRQ
     ldx #$ff
     txs        ; Set up stack
+    stx $8000  ; reset the mapper
+    ; Set up memory mapper to enable SRAM
+    ;LDA #$80       ; Enable SRAM at $6000-$7FFF
+    ;STA $A001
+    ; Initialize MMC1
+    ; lda #BANK_SWITCH_LOW
+    ; sta MMC1_CTRL  ; Select low 8KB PRG-ROM bank
+    ; lda #$00
+    ; sta MMC1_DATA  ; Write to MMC1 Data Register to set initial state
+    ; Initialize MMC1
+    ; LDA #$80
+    ; STA $8000           ; Write to MMC1 control register to set PRG ROM mode
+    ; LDA #$80            ; Enable SRAM at $6000-$7FFF
+    ; STA $A001
     inx        ; now X = 0
     stx $2000  ; disable NMI
     stx $2001  ; disable rendering
@@ -139,12 +188,15 @@ jsr game
     @loop:
         ldx #$00
         jsr readjoyx_safe
+        jsr process_input
 		jsr process_snake
 		jsr ppu_update
 	jmp @loop
 .endproc
 
 .proc initialize_variables
+    lda #$10
+    sta snake_speed
     lda #$07
     sta target_size
 	lda #$0f
@@ -164,11 +216,10 @@ jsr game
 .proc process_snake
 	lda tick_count
 	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
-    cmp #$10 ; snake speed
+    cmp snake_speed ; snake speed
 	bne @end
     lda #$00
 	sta tick_count ; reset frame counter
-    jsr process_input
     jsr move_snake_on_input
     jsr move_snake
     @end:
@@ -211,19 +262,7 @@ jsr game
     ldy new_y
 
     jsr tile_to_screen_space_xy
-    stx current_high_2
-    sty current_low_2
-
-    ldy #$00
-    lda (current_low_2), y
-    cmp #$68
-    bne @no_coll
-        @forever:
-        jmp @forever
-    ; Check tile ran into
-    @no_coll:
-    lda #$68 ; h
-    sta (current_low_2), y
+    jsr process_collision_detection
 
     ; Record the movement to the "linked list"
     ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
@@ -299,7 +338,27 @@ jsr game
 .endproc
 
 .proc process_collision_detection
+    stx current_high_2
+    sty current_low_2
 
+    ldy #$00
+    ; Check tile ran into
+    lda (current_low_2), y
+    cmp #$68
+    bne no_self
+        @forever:
+        jmp @forever
+    no_self:
+    cmp #$69
+    bne @no_coll
+        lda target_size
+        clc
+        adc #$07
+        sta target_size
+    @no_coll:
+    lda #$68 ; h
+    sta (current_low_2), y
+    rts
 .endproc
 
 .proc process_input
@@ -334,6 +393,8 @@ jsr game
     rts
 .endproc
 
+; At the same time that we strobe bit 0, we initialize the ring counter
+; so we're hitting two birds with one stone here
 readjoyx2:
     ldx #$00
     jsr readjoyx    ; X=0: read controller 1
@@ -346,12 +407,12 @@ readjoyx:           ; X register = 0 for controller 1, 1 for controller 2
     sta buttons, x
     lsr a
     sta JOYPAD1
-loop:
+button_loop:
     lda JOYPAD1, x
     and #%00000011  ; ignore bits other than controller
     cmp #$01        ; Set carry if and only if nonzero
     rol buttons, x  ; Carry -> bit 0; but 7 -> Carry
-    bcc loop
+    bcc button_loop
     rts
 
 readjoy2_safe:
@@ -509,6 +570,9 @@ ppu_update:
 	lda #1
 	sta nmi_ready
 	:
+        ldx #00
+        jsr readjoyx_safe
+        jsr process_input
 		lda nmi_ready
 		bne :-
 	rts
