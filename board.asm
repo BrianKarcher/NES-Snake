@@ -95,38 +95,12 @@ load_board_to_nt:
     ;jsr ppu_load
     jsr board_to_ppu_load
 
-    ;ldx #$0
-    ;ldy #$0
+    lda #<screen
+    sta current_low
+    lda #>screen
+    sta current_high
+    jsr ppu_to_screen_space
 
-    ; This transfers from ppu memory to screen memory
-    ; x and y are flip flopped because indirect indexing forces us to use y :(
-    ; fory:
-    ; ldy #$0
-    ; forx:
-    ; ; loop:
-    ; ; Transfer the current memory location to the PPU
-    ; lda (current_low), y
-    ; sta (current_low_2), y ; CPU screen memory
-    ; sta PPU_DATA ; PPU memory
-    ; ; Increment the address
-    ; iny
-    ; jmp checkexit
-    ; noexit:
-    ; cpy #$00 ; page flip?
-    ; bne forx
-
-    ; inc current_high
-    ; inc current_high_2
-    ; inx
-    ; cpx #$1e ; 30
-    ; bne fory
-
-    ; checkexit:
-    ; cpy #$c0
-    ; bne noexit
-    ; cpx #$03
-    ; bne noexit
-    ; Done transfering
     rts
 
 ; tile_map_to_screen:
@@ -192,15 +166,10 @@ board_to_ppu_load:
             lda (current_low), y
             tax
             lda top_left, x
-            cmp #$1
-            bne @no_wall
-            lda #$58
-            jmp @end
-            @no_wall:
-            lda #$0
-            @end:
+            jsr tile_convert
             sta PPU_DATA ; PPU memory
             lda top_right, x
+            jsr tile_convert
             sta PPU_DATA ; PPU memory
             
             ; Increment the address
@@ -215,8 +184,10 @@ board_to_ppu_load:
             lda (current_low), y
             tax
             lda bottom_left, x
+            jsr tile_convert
             sta PPU_DATA ; PPU memory
             lda bottom_right, x
+            jsr tile_convert
             sta PPU_DATA ; PPU memory
             
             ; Increment the address
@@ -237,4 +208,60 @@ board_to_ppu_load:
         lda zp_temp_3 ; row count
         cmp #$f ; 15
     bne @fory
+rts
+
+; Convert tiles from the ppu to screen space
+ppu_to_screen_space:
+    lda #>NT0
+    sta PPU_ADDRESS
+    lda #<NT0
+    sta PPU_ADDRESS
+
+    ; Load the buffer
+    lda PPU_DATA
+
+    ldx #$0
+    ldy #$0
+
+    ;This transfers from ppu memory to screen memory
+    ;x and y are flip flopped because indirect indexing forces us to use y :(
+    fory:
+    ldy #$0
+    forx:
+    ; loop:
+    ; Transfer the current memory from the PPU to the screen space
+    lda PPU_DATA ; PPU memory
+    sta (current_low), y
+    ;sta (current_low_2), y ; CPU screen memory
+
+    ; Increment the address
+    iny
+    jmp checkexit
+    noexit:
+    cpy #$00 ; page flip?
+    bne forx
+
+    inc current_high
+    ;inc current_high_2
+    inx
+    cpx #$1e ; 30
+    bne fory
+
+    checkexit:
+    cpy #$c0
+    bne noexit
+    cpx #$03
+    bne noexit
+    ; Done transfering
+rts
+
+; Convert a tile from an abstracted value to a themed 
+tile_convert:
+    cmp #$1
+    bne @no_wall
+    lda #$58
+    jmp @end
+    @no_wall:
+    lda #$0
+    @end:
 rts
