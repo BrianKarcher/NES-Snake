@@ -2,7 +2,7 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board
-.export zp_temp_1, zp_temp_2, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
+.export zp_temp_1, zp_temp_2, zp_temp_3, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
 
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
@@ -180,10 +180,10 @@ sta $4010  ; enable DMC IRQs
 lda RIGHT
 sta cur_dir
 sta next_dir
-jsr game
 
 .proc game
     jsr initialize_variables
+    jsr setup_game_variables
 
     @loop:
         ldx #$00
@@ -210,6 +210,25 @@ jsr game
     lda #$00
     sta head_index
     sta tail_index
+    rts
+.endproc
+
+.proc setup_game_variables
+    ldx new_x
+    ldy new_y
+    jsr tile_to_screen_space_xy
+    stx current_high_2
+    sty current_low_2
+    jsr store_head
+
+    lda #$68 ; h
+    ldy #$0
+    sta SNAKE, y
+    ; place head on nmi queue
+    ldx new_x
+    ldy new_y
+    jsr ppu_update_tile
+    inc size
     rts
 .endproc
 
@@ -262,24 +281,45 @@ jsr game
     ldy new_y
 
     jsr tile_to_screen_space_xy
+    stx current_high_2
+    sty current_low_2
     jsr process_collision_detection
+    jsr store_head
+    jsr move_head
 
+    jsr process_tail
+	rts
+.endproc
+
+; Store the head in screen space memory
+.proc store_head
+    lda #$68 ; h
+    ldy #$00 ; current_low_2 points to the exact location, no offset
+    sta (current_low_2), y
+    rts
+.endproc
+
+.proc move_head
     ; Record the movement to the "linked list"
     ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
+    ; Mark the current head with the direction to the new head
     lda cur_dir ; We just store directions so the tail can follow along
     ldy head_index
     sta SNAKE, y
-    inc head_index
-
-    ; Move head, place on nmi queue
+    ; Increment to new head
+    iny
+    ; Store 'h' at the new head since we don't know the direction to its next head yet
     lda #$68 ; h
+    sta SNAKE, y
+    sty head_index
+
+    ; Move head, place on nmi queu
     ldx new_x
     stx head_x
     ldy new_y
     sty head_y
     jsr ppu_update_tile
-    jsr process_tail
-	rts
+    rts
 .endproc
 
 .proc process_tail
@@ -287,6 +327,23 @@ jsr game
     lda size
     cmp target_size
     bne grow
+        ; Remove the current tail via nmi queue
+        lda #$00 ; h
+        ldx tail_x
+        ldy tail_y
+        jsr ppu_update_tile
+
+        ldx tail_x
+        ldy tail_y
+
+        jsr tile_to_screen_space_xy
+        stx current_high_2
+        sty current_low_2
+        ldy #$00
+        ; Erase the tail
+        ; This is optional, more for debugging
+        lda #$00
+        sta (current_low_2), y
         ; We are at target size, move the tail along
 
         ; Move the tail
@@ -316,39 +373,30 @@ jsr game
         jmp tail_end
 
     tail_done:
-        ; Remove tail via nmi queue
-        lda #$00 ; h
-        ldx tail_x
-        ldy tail_y
-        jsr ppu_update_tile
-
-        ldx tail_x
-        ldy tail_y
-
-        jsr tile_to_screen_space_xy
-        stx current_high_2
-        sty current_low_2
-        ldy #$00
-        ; Erase the tail
-        ; This is optional, more for debugging
-        lda #$00
-        sta (current_low_2), y
     tail_end:
     rts
 .endproc
 
-.proc process_collision_detection
-    stx current_high_2
-    sty current_low_2
+; Processes collision detection for the new head position
+; IN
+; current_high_2 and current_low_2 are the head position in screen space
+; The function doesn't directly speficy current_high_2, but it uses it. Trust me.
+; Currently it goes into an infinite loop on a collision with a wall or self, update
+; this later to have a proper death cycle
+; Snake grows bigger when eating food
 
+.proc process_collision_detection
     ldy #$00
     ; Check tile ran into
     lda (current_low_2), y
     cmp #$68
     bne no_self
-        @forever:
-        jmp @forever
+        jmp inf_loop
     no_self:
+    cmp #$58
+    bne no_wall
+        jmp inf_loop
+    no_wall:
     cmp #$69
     bne @no_coll
         lda target_size
@@ -356,9 +404,12 @@ jsr game
         adc #$07
         sta target_size
     @no_coll:
-    lda #$68 ; h
-    sta (current_low_2), y
     rts
+.endproc
+
+.proc inf_loop
+    @forever:
+    jmp @forever
 .endproc
 
 .proc process_input
