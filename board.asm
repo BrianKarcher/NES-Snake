@@ -2,8 +2,9 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.import screen
-.export draw_board
+.importzp random_index
+.import screen, random, tile_to_screen_space_xy, ppu_update_tile
+.export draw_board, place_food
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -265,3 +266,63 @@ tile_convert:
     lda #$0
     @end:
 rts
+
+place_food:
+    jsr find_blank_tile
+    lda #$69
+    jsr ppu_update_tile ; Place in PPU queue before we start destroying the y register
+    ldy #$0
+    sta (current_low_2), y
+    
+    rts
+
+; Find a blank tile
+; IN
+; None
+; OUT
+; current_x_2 points to the tile in screen space
+; x, y in their registers
+find_blank_tile:
+    jsr get_random_axis
+    sta zp_temp_1 ; store x
+    ;pha ; store x in stack
+    tax
+    find_y:
+    jsr get_random_axis
+    cmp #$1e ; 30
+    bpl find_y ; Find another y if > 30
+    sta zp_temp_2 ; store y
+    tay
+    jsr tile_to_screen_space_xy
+    stx current_high_2
+    sty current_low_2
+    ; Check if the tile is free
+    ldy #$0
+    lda (current_low_2), Y
+    cmp #$58
+    beq find_blank_tile
+    cmp #$69
+    beq find_blank_tile
+    cmp #$68 ; Cannot place on top of snake
+    beq find_blank_tile
+    lda zp_temp_1 ; transfer x to x register
+    tax
+    lda zp_temp_2 ; transfer y to y register
+    tay
+    rts
+
+
+; Get a random tile on an axis (x or y)
+; IN
+; None
+; OUT
+; A = random number
+get_random_axis:
+    ldy random_index
+    iny ; There are 256 random values, random_index can just loop in circles via overflow
+    sty random_index
+    lda random, Y
+    lsr
+    lsr
+    lsr ; Shift right three times to convert 0-256 to 0-32
+    rts

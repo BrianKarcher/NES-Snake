@@ -1,9 +1,9 @@
 ; main game Loop
 .include "constants.asm"
 
-.import init, load_palette, draw_board
+.import init, load_palette, draw_board, place_food
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
-
+.export random_index, random, tile_to_screen_space_xy, ppu_update_tile
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -75,6 +75,7 @@ start_high_2:   .res 1
 current_low_2:  .res 1
 current_high_2: .res 1
 snake_speed:    .res 1
+random_index:   .res 1
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -170,6 +171,9 @@ sta OAM_ADDRESS           ; Store high byte into OAMADDR
 
 ; Trigger OAMDMA transfer
 jsr draw_board
+jsr place_food
+jsr place_food
+jsr place_food
 
 lda #$80
 sta $2000  ; enable NMI
@@ -186,6 +190,7 @@ sta next_dir
     jsr setup_game_variables
 
     @loop:
+        inc random_index
         ldx #$00
         jsr readjoyx_safe
         jsr process_input
@@ -193,6 +198,15 @@ sta next_dir
 		jsr ppu_update
 	jmp @loop
 .endproc
+
+random:
+    .byte $4d,$41,$bb,$56,$86,$2f,$ae,$f3,$93,$56,$f3,$89,$4c,$e7,$d6,$f5,$60,$ac,$29,$fc,$3f,$0d,$16,$fd,$c5,$c5,$40,$bc,$95,$a7,$d8,$4f,$e2,$f0,$77,$ed,$f3
+    .byte $1f,$5b,$df,$2c,$46,$44,$f6,$40,$c4,$f5,$7f,$1a,$59,$51,$06,$bb,$14,$cf,$91,$76,$c6,$92,$1b,$d7,$a1,$5e,$96,$2c,$06,$81,$30,$3b,$57,$47,$d0,$40,$31
+    .byte $86,$c9,$01,$66,$90,$85,$85,$da,$c6,$12,$a8,$8e,$d7,$7a,$7d,$5f,$f7,$6c,$7a,$97,$53,$c5,$10,$ad,$d7,$80,$cf,$51,$86,$2b,$dc,$91,$e0,$0f,$95,$93,$85
+    .byte $40,$8d,$79,$1e,$3c,$69,$b7,$ab,$06,$d8,$1e,$13,$97,$55,$3d,$c0,$b4,$a2,$8d,$b0,$5b,$9f,$52,$d5,$6b,$00,$e9,$2b,$76,$c4,$8b,$57,$23,$1c,$5d,$68
+    .byte $53,$ae,$21,$db,$08,$67,$85,$87,$2d,$2c,$49,$ef,$3c,$51,$c5,$40,$86,$c5,$16,$00,$77,$a1,$4d,$1b,$e9,$86,$42,$45,$6c,$0d,$39,$e7,$e3,$4c,$97,$b0
+    .byte $c8,$ff,$31,$7e,$b6,$0f,$cd,$74,$76,$ce,$05,$7d,$67,$2a,$ec,$b0,$98,$6d,$c6,$d1,$16,$f9,$f7,$84,$f1,$0c,$43,$c4,$c1,$65,$fd,$13,$bd,$1d,$b8,$47
+    .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
 .proc initialize_variables
     lda #$10
@@ -397,7 +411,7 @@ sta next_dir
     bne no_wall
         jmp inf_loop
     no_wall:
-    cmp #$69
+    cmp #$69 ; food!
     bne @no_coll
         lda target_size
         clc
@@ -443,45 +457,6 @@ sta next_dir
     @end:
     rts
 .endproc
-
-; At the same time that we strobe bit 0, we initialize the ring counter
-; so we're hitting two birds with one stone here
-readjoyx2:
-    ldx #$00
-    jsr readjoyx    ; X=0: read controller 1
-    inx
-    ; fall through to readjoyx below, X=1: read controller 2
-
-readjoyx:           ; X register = 0 for controller 1, 1 for controller 2
-    lda #$01
-    sta JOYPAD1
-    sta buttons, x
-    lsr a
-    sta JOYPAD1
-button_loop:
-    lda JOYPAD1, x
-    and #%00000011  ; ignore bits other than controller
-    cmp #$01        ; Set carry if and only if nonzero
-    rol buttons, x  ; Carry -> bit 0; but 7 -> Carry
-    bcc button_loop
-    rts
-
-readjoy2_safe:
-    ldx #$00
-    jsr readjoyx_safe  ; X=0: safe read controller 1
-    inx
-    ; fall through to readjoyx_safe, X=1: safe read controller 2
-
-readjoyx_safe:
-    jsr readjoyx
-reread:
-    lda buttons, x
-    pha
-    jsr readjoyx
-    pla
-    cmp buttons, x
-    bne reread
-    rts
 
 .proc nmi
 	; save registers
@@ -767,6 +742,45 @@ ppu_update_byte:
 	iny
 	sty nmt_update_len
 	rts
+
+; At the same time that we strobe bit 0, we initialize the ring counter
+; so we're hitting two birds with one stone here
+readjoyx2:
+    ldx #$00
+    jsr readjoyx    ; X=0: read controller 1
+    inx
+    ; fall through to readjoyx below, X=1: read controller 2
+
+readjoyx:           ; X register = 0 for controller 1, 1 for controller 2
+    lda #$01
+    sta JOYPAD1
+    sta buttons, x
+    lsr a
+    sta JOYPAD1
+button_loop:
+    lda JOYPAD1, x
+    and #%00000011  ; ignore bits other than controller
+    cmp #$01        ; Set carry if and only if nonzero
+    rol buttons, x  ; Carry -> bit 0; but 7 -> Carry
+    bcc button_loop
+    rts
+
+readjoy2_safe:
+    ldx #$00
+    jsr readjoyx_safe  ; X=0: safe read controller 1
+    inx
+    ; fall through to readjoyx_safe, X=1: safe read controller 2
+
+readjoyx_safe:
+    jsr readjoyx
+reread:
+    lda buttons, x
+    pha
+    jsr readjoyx
+    pla
+    cmp buttons, x
+    bne reread
+    rts
 
 .segment "VECTORS"
 	.addr nmi, reset, 0
