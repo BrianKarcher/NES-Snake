@@ -268,11 +268,37 @@ tile_convert:
 rts
 
 place_food:
+    ; Restore current_x_2 after we overwrite them.
+    lda current_high_2
+    pha
+    lda current_low_2
+    pha
     jsr find_blank_tile
+    txa ; temporarily store X on stack
+    pha
+    tya ; temporarily store Y on stack
+    pha
     lda #$69
     jsr ppu_update_tile ; Place in PPU queue before we start destroying the y register
-    ldy #$0
+    
+    pla ; Pull Y off the stack
+    tay
+    pla ; Pull X off the stack
+    tax
+
+    jsr tile_to_screen_space_xy
+    stx current_high_2
+    sty current_low_2
+    ldy #$00
+
+    lda #$69
     sta (current_low_2), y
+    pla
+    sta current_low_2
+    pla
+    sta current_high_2
+    ;ldy #$0
+    ;sta (current_low_2), y
     
     rts
 
@@ -284,14 +310,16 @@ place_food:
 ; x, y in their registers
 find_blank_tile:
     jsr get_random_axis
-    sta zp_temp_1 ; store x
+    pha ; Store X onto stack
+    ;sta zp_temp_1 ; store x
     ;pha ; store x in stack
     tax
     find_y:
     jsr get_random_axis
     cmp #$1e ; 30
     bpl find_y ; Find another y if > 30
-    sta zp_temp_2 ; store y
+    ;sta zp_temp_2 ; store y
+    pha ; Store y onto stack
     tay
     jsr tile_to_screen_space_xy
     stx current_high_2
@@ -300,16 +328,24 @@ find_blank_tile:
     ldy #$0
     lda (current_low_2), Y
     cmp #$58
-    beq find_blank_tile
+    beq fail
     cmp #$69
-    beq find_blank_tile
+    beq fail
     cmp #$68 ; Cannot place on top of snake
-    beq find_blank_tile
-    lda zp_temp_1 ; transfer x to x register
-    tax
-    lda zp_temp_2 ; transfer y to y register
+    beq fail
+    pla ; pull Y from stack
     tay
+    ;ldx zp_temp_1 ; transfer x to x register
+    ;tax
+    pla ; pull X from stack
+    tax
+    ;ldy zp_temp_2 ; transfer y to y register
+    ;tay
     rts
+    fail:
+    pla ; Pull X from stack
+    pla ; Pull Y from stack
+    jmp find_blank_tile
 
 
 ; Get a random tile on an axis (x or y)

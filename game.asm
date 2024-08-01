@@ -172,8 +172,8 @@ sta OAM_ADDRESS           ; Store high byte into OAMADDR
 ; Trigger OAMDMA transfer
 jsr draw_board
 jsr place_food
-jsr place_food
-jsr place_food
+;jsr place_food
+;jsr place_food
 
 lda #$80
 sta $2000  ; enable NMI
@@ -413,10 +413,12 @@ random:
     no_wall:
     cmp #$69 ; food!
     bne @no_coll
+        ;jmp inf_loop
         lda target_size
         clc
         adc #$07
         sta target_size
+        jsr place_food
     @no_coll:
     rts
 .endproc
@@ -659,7 +661,8 @@ tile_to_screen_space_xy:
 	lsr
 	lsr
 	;ora #$20 ; high bits of Y + $20
-	sta zp_temp_1
+    pha ; Store High Byte on stack
+	;sta zp_temp_1
 	tya
 	asl
 	asl
@@ -669,8 +672,11 @@ tile_to_screen_space_xy:
 	sta zp_temp_3
 	txa
 	ora zp_temp_3
-    ldx zp_temp_1
-    tay
+    tay ; Store low byte into Y
+    pla ; Pull High Byte from stack
+    tax
+    ;ldx zp_temp_1
+    ; Falls through to next routine
     ;jsr convert_screen_space_to_screen_memory
 	;rts
 
