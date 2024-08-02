@@ -86,6 +86,10 @@ screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite lar
 
 
 .segment "STARTUP" ; avoids warning
+dirs:
+    .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
+o_dirs: ; opposite directions - to test if player pressed in opposite of current direction
+    .byte BUTTON_DOWN, BUTTON_UP, BUTTON_RIGHT, BUTTON_LEFT
 
 reset:
     sei        ; ignore IRQs
@@ -181,7 +185,7 @@ lda #$1e
 sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
-lda RIGHT
+lda #BUTTON_RIGHT
 sta cur_dir
 sta next_dir
 
@@ -263,25 +267,25 @@ random:
     lda next_dir
     sta cur_dir
 
-    cmp #UP
+    cmp #BUTTON_UP
     bne @notUp
     dec new_y
     jmp @buttonEnd
 
     @notUp:
-    cmp #DOWN
+    cmp #BUTTON_DOWN
     bne @notDown
     inc new_y
     jmp @buttonEnd
 
     @notDown:
-    cmp #LEFT
+    cmp #BUTTON_LEFT
     bne @notLeft
     dec new_x
     jmp @buttonEnd
 
     @notLeft:
-    cmp #RIGHT
+    cmp #BUTTON_RIGHT
     bne @buttonEnd
     inc new_x
 
@@ -364,17 +368,17 @@ random:
         ldy tail_index
         inc tail_index
         lda SNAKE, Y
-        cmp #UP
+        cmp #BUTTON_UP
         bne @not_up
             dec tail_y
             jmp tail_done
         @not_up:
-        cmp #DOWN
+        cmp #BUTTON_DOWN
         bne @not_down
             inc tail_y
             jmp tail_done
         @not_down:
-        cmp #LEFT
+        cmp #BUTTON_LEFT
         bne @not_left
             dec tail_x
             jmp tail_done
@@ -428,37 +432,27 @@ random:
     jmp @forever
 .endproc
 
-.proc process_input
+process_input:
+    ; short circuit if not pressing anything
     lda buttons
-    ;bit BUTTON_UP
-    and #BUTTON_UP
-    beq @notButtonUp
-    lda #UP
-    sta next_dir
-    jmp @end
-    @notButtonUp:
-    lda buttons
-    and #BUTTON_DOWN
-    beq @notButtonDown
-    lda #DOWN
-    sta next_dir
-    jmp @end
-    @notButtonDown:
-    lda buttons
-    and #BUTTON_LEFT
-    beq @notButtonLeft
-    lda #LEFT
-    sta next_dir
-    jmp @end
-    @notButtonLeft:
-    lda buttons
-    and #BUTTON_RIGHT
     beq @end
-    lda #RIGHT
-    sta next_dir
+    ldy #$3
+    @repeat:
+        lda buttons
+        and dirs, Y
+        beq @not_it
+            lda cur_dir
+            cmp o_dirs, Y
+            beq @end ; Don't set next_dir if you pressed in the opposite of the current direction.
+            lda dirs, y
+            sta next_dir
+            jmp @end
+        @not_it:
+        dey
+        bpl @repeat ; repeat if y is >= 0
+        beq @repeat
     @end:
     rts
-.endproc
 
 .proc nmi
 	; save registers

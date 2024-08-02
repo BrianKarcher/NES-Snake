@@ -10,10 +10,6 @@ SNAKE           = $0300
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20
 JOYPAD1         = $4016
-UP              = 0
-DOWN            = 1
-LEFT            = 2
-RIGHT           = 3
 
 BUTTON_A      = 1 << 7
 BUTTON_B      = 1 << 6
