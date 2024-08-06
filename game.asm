@@ -79,6 +79,7 @@ food_count:     .res 2
 temp_a:         .res 1
 temp_x:         .res 1
 temp_y:         .res 1
+player_count:   .res 1
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -93,6 +94,11 @@ dirs:
     .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
 o_dirs: ; opposite directions - to test if player pressed in opposite of current direction
     .byte BUTTON_DOWN, BUTTON_UP, BUTTON_RIGHT, BUTTON_LEFT
+
+snakes_hi:
+    .byte >SNAKE, >SNAKE2
+snakes_lo:
+    .byte <SNAKE, <SNAKE2
 
 reset:
     sei        ; ignore IRQs
@@ -216,6 +222,8 @@ random:
     .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
 .proc initialize_variables
+    lda #$1
+    sta player_count
     lda #$10
     sta snake_speed
 
@@ -262,62 +270,76 @@ random:
 ; .endproc
 
 .proc setup_game_variables
-    ldx new_x
-    ldy new_y
-    jsr tile_to_screen_space_xy
-    stx current_high_2
-    sty current_low_2
+    ldx #$0
+    @loop:
+
+    lda new_x, x
+    sta temp_x
+    lda new_y, x
+    sta temp_y
+    ; ldx new_x
+    ; ldy new_y
+    jsr tile_to_screen_space_temp
+
+    ; stx current_high_2
+    ; sty current_low_2
     jsr store_head
 
     lda #$68 ; h
     ldy #$0
     sta SNAKE, y
     ; place head on nmi queue
-    ldx new_x
-    ldy new_y
-    jsr ppu_update_tile
-    inc size
+    lda new_x
+    sta temp_x
+    lda new_y
+    sta temp_y
+    ; ldx new_x
+    ; ldy new_y
+    jsr ppu_update_tile_temp
+    inc size, x
+
+    inx
+    cpx #player_count
+    bne @loop
     rts
 .endproc
 
 .proc process_snake
 	lda tick_count
-	; cmp #$3c ; snake speed, move every 60 frames, otherwise exit
-    cmp snake_speed ; snake speed
+    cmp snake_speed ; snake speed - how many ticks to skip between updates.
 	bne @end
     lda #$00
 	sta tick_count ; reset frame counter
-    jsr move_snake_on_input
     jsr move_snake
     @end:
     rts
 .endproc
 
 .proc move_snake_on_input
-    lda next_dir
-    sta cur_dir
+    lda next_dir, x
+    sta cur_dir, x
 
     cmp #BUTTON_UP
     bne @notUp
-    dec new_y
+    dec new_y, x
     jmp @buttonEnd
 
     @notUp:
     cmp #BUTTON_DOWN
     bne @notDown
-    inc new_y
+    inc new_y, x
     jmp @buttonEnd
 
     @notDown:
     cmp #BUTTON_LEFT
     bne @notLeft
-    dec new_x
+    dec new_x, x
     jmp @buttonEnd
 
     @notLeft:
     cmp #BUTTON_RIGHT
     bne @buttonEnd
-    inc new_x
+    inc new_x, x
 
     @buttonEnd:
     rts
@@ -326,6 +348,7 @@ random:
 .proc move_snake
     ldx #$0
     @loop:
+    jsr move_snake_on_input
     jsr move_snakex
     inx
     cpx #$01
