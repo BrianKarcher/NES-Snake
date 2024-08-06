@@ -2,7 +2,7 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food
-.export zp_temp_1, zp_temp_2, zp_temp_3, screen, start_low, start_high, current_low, current_high, end_low, end_high, start_low_2, start_high_2, current_low_2, current_high_2
+.export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, tile_to_screen_space_xy, ppu_update_tile
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
@@ -43,39 +43,39 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 .segment "ZEROPAGE"
 nmi_lock:       .res 1 ; prevents NMI re-entry
 nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
-buttons:        .res 1
+buttons:        .res 2
 nmi_count:      .res 1
 tick_count:     .res 1
-head_x:         .res 1
-head_y:         .res 1
-new_x:          .res 1
-new_y:          .res 1
-tail_x:         .res 1
-tail_y:         .res 1
+head_x:         .res 2 ; Enable two-player
+head_y:         .res 2
+new_x:          .res 2
+new_y:          .res 2
+tail_x:         .res 2
+tail_y:         .res 2
 snake_update:   .res 1
-next_dir:       .res 1
-cur_dir:        .res 1
-target_size:    .res 1
-size:           .res 1
-head_index:     .res 1
-tail_index:     .res 1 ; 0x17
-dir:            .res 1
+next_dir:       .res 2
+cur_dir:        .res 2
+target_size:    .res 2
+size:           .res 2
+head_index:     .res 2
+tail_index:     .res 2 ; 0x17
 zp_temp_1:      .res 1
 zp_temp_2:      .res 1
 zp_temp_3:      .res 1
 nmt_update_len: .res 1 ; number of bytes in nmt_update buffer
-start_low:      .res 1  ; Low byte of start address
-start_high:     .res 1  ; High byte of start address
+;start_low:      .res 1  ; Low byte of start address
+;start_high:     .res 1  ; High byte of start address
 end_low:        .res 1  ; Low byte of end address
 end_high:       .res 1  ; High byte of end address
 current_low:    .res 1  ; Low byte of current address, this is a memory pointer for indirect indexing
 current_high:   .res 1  ; High byte of current address
-start_low_2:    .res 1
-start_high_2:   .res 1
+;start_low_2:    .res 1
+;start_high_2:   .res 1
 current_low_2:  .res 1
 current_high_2: .res 1
 snake_speed:    .res 1
 random_index:   .res 1
+food_count:     .res 2
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -196,7 +196,7 @@ sta next_dir
     @loop:
         inc random_index
         ldx #$00
-        jsr readjoyx_safe
+        jsr readjoy2_safe
         jsr process_input
 		jsr process_snake
 		jsr ppu_update
@@ -215,21 +215,48 @@ random:
 .proc initialize_variables
     lda #$10
     sta snake_speed
-    lda #$07
-    sta target_size
-	lda #$0f
-	sta head_x
-    sta tail_x
-    sta new_x
-	lda #$0e
-	sta head_y
-    sta tail_y
-    sta new_y
-    lda #$00
-    sta head_index
-    sta tail_index
+
+    ; TODO - Move these to a board tile.
+    lda #$09
+    ldy #$0
+    sta START_X, y
+    lda #$0e
+    sta START_Y, y
+    lda #$10
+    ldy #$01
+    sta START_X, y
+    lda #$11
+    sta START_Y, y
+
+    ldy #$00
+    init_snake:
+        lda #$07
+        sta target_size, y
+        lda START_X, y
+        sta head_x, y
+        sta tail_x, y
+        sta new_x, y
+        lda START_Y, y
+        sta head_y, y
+        sta tail_y, y
+        sta new_y, y
+        lda #$00
+        sta head_index, y
+        sta tail_index, y
+        sta food_count, y
+        iny
+    cpy #$02
+    bne init_snake
     rts
+
+    recordx:
+
 .endproc
+
+; .proc setup_game_variables
+
+;     rts
+; .endproc
 
 .proc setup_game_variables
     ldx new_x
@@ -299,9 +326,26 @@ random:
     ldy new_y
 
     jsr tile_to_screen_space_xy
+    ; IN
+; Stack 0 = x
+; Stack 1 = y
+; OUT
+; Stack 0 = LOW BYTE of screen space
+; Stack 1 = HIGH BYTE of screen space
+    ; lda new_y
+    ; pha
+    ; lda new_x
+    ; pha
+    ; jsr tile_to_screen_space_stack
+    ; Feed the outgoing stack into the next function.
+    ; pla
+    ; sta current_low_2
+    ; pla
+    ; sta current_high_2
     stx current_high_2
     sty current_low_2
     jsr process_collision_detection
+    ; jsr process_collision_detection_stack
     jsr store_head
     jsr move_head
 
@@ -427,30 +471,68 @@ random:
     rts
 .endproc
 
+; Same as above but uses stack. Useful if the caller uses the index registers.
+.proc process_collision_detection_stack
+    pla ; HIGH Byte
+    sta current_high_2
+    pla ; LOW Byte
+    sta current_low_2
+    ldy #$00
+    ; Check tile ran into
+    lda (current_low_2), y
+    cmp #$68
+    bne no_self
+        jmp inf_loop
+    no_self:
+    cmp #$58
+    bne no_wall
+        jmp inf_loop
+    no_wall:
+    cmp #$69 ; food!
+    bne @no_coll
+        ;jmp inf_loop
+        lda target_size
+        clc
+        adc #$07
+        sta target_size
+        jsr place_food
+    @no_coll:
+    rts
+.endproc
+
 .proc inf_loop
     @forever:
     jmp @forever
 .endproc
 
 process_input:
+    ldx #$0
+    @loop:
+    jsr process_inputx
+    inx
+    cpx #$02
+    bne @loop
+    rts
+
+process_inputx: ; X register = 0 for controller 1, 1 for controller 2
     ; short circuit if not pressing anything
-    lda buttons
+    lda buttons, x
     beq @end
-    ldy #$3
+    ldy #$0
     @repeat:
-        lda buttons
+        lda buttons, x
         and dirs, Y
         beq @not_it
-            lda cur_dir
+            lda cur_dir, x
             cmp o_dirs, Y
             beq @end ; Don't set next_dir if you pressed in the opposite of the current direction.
             lda dirs, y
-            sta next_dir
+            sta next_dir, x
             jmp @end
         @not_it:
-        dey
-        bpl @repeat ; repeat if y is >= 0
-        beq @repeat
+        iny
+        cpy #$4
+        bne @repeat
     @end:
     rts
 
@@ -593,7 +675,7 @@ ppu_update:
 	sta nmi_ready
 	:
         ldx #00
-        jsr readjoyx_safe
+        ;jsr readjoyx_safe
         jsr process_input
 		lda nmi_ready
 		bne :-
@@ -692,6 +774,73 @@ convert_screen_space_to_screen_memory:
     ;sta current_high
     ;sty current_low
 	;sta zp_temp_2 ; low bits of Y + X
+    rts
+
+; Same as above but uses the stack instead to pass variables. This makes it easier for the caller to use the x and y registers as indexes.
+; This function restores the x and y registers to their original value.
+; IN
+; Stack 0 = y
+; Stack 1 = x
+; OUT
+; Stack 0 = LOW BYTE of screen space
+; Stack 1 = HIGH BYTE of screen space
+tile_to_screen_space_stack:
+	;lda $2002 ; reset latch
+    ; Need to restore x and y registers when existing the routine
+    ;txa
+    ;pha ; Store x on stack for restore at the end
+	;tya
+    ;pha ; Store y on stack for restore at the end
+    stx zp_temp_1
+    sty zp_temp_2
+    pla ; pull x off stack (from coord system)
+    tax
+    pla ; pull y off stack (from coord system)
+	lsr
+	lsr
+	lsr
+	;ora #$20 ; high bits of Y + $20
+    pha ; Store High Byte on stack
+	;sta zp_temp_1
+	tya
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta zp_temp_3
+	txa
+	ora zp_temp_3
+    tay ; Store low byte into Y
+    pla ; Pull High Byte from stack
+    tax
+    ;ldx zp_temp_1
+    ; Falls through to next routine
+    ;jsr convert_screen_space_to_screen_memory
+	;rts
+
+; Screen Space starts at 0. This moves the pointers so they start at the memory location for the screen in CPU memory
+convert_screen_space_to_screen_memory_stack:
+    ;txa
+    tya ; Low byte
+    clc
+    adc #<screen
+    ;tay ; record the low byte to return
+    pha ; record the LOW byte to return on the stack
+    ;sta current_low_2
+    txa ; High byte
+    ;clc
+    adc #>screen ; adds carry flag if needed
+    ;adc x
+    ;sta current_high_2
+    ;tax ; record high byte to return
+    pha ; record HIGH byte to return on the stack
+    ;ora #$20 ; high bits of Y + $20
+    ;sta current_high
+    ;sty current_low
+	;sta zp_temp_2 ; low bits of Y + X
+    ldx zp_temp_1 ; Restore original x and y registers
+    ldy zp_temp_2
     rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
