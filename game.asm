@@ -76,6 +76,9 @@ current_high_2: .res 1
 snake_speed:    .res 1
 random_index:   .res 1
 food_count:     .res 2
+temp_a:         .res 1
+temp_x:         .res 1
+temp_y:         .res 1
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -321,11 +324,33 @@ random:
 .endproc
 
 .proc move_snake
-    ; Check tile ran into
-    ldx new_x
-    ldy new_y
+    ldx #$0
+    @loop:
+    jsr move_snakex
+    inx
+    cpx #$02
+    bne @loop
+.endproc
 
-    jsr tile_to_screen_space_xy
+.proc move_snakex
+    ;txa ; This code is a mess.
+    ;pha ; store x on stack
+    ; Check tile ran into
+    ;ldy new_y, x
+    ;tya ; a is temp storage
+    ;txy
+    ;stx zp_temp_1
+    ;ldy zp_temp_1
+    ;ldx new_x, y
+    ;tay
+
+    ;jsr tile_to_screen_space_xy
+    lda new_y, x
+    sta temp_y
+    lda new_x, x
+    sta temp_x
+    jsr tile_to_screen_space_temp
+
     ; IN
 ; Stack 0 = x
 ; Stack 1 = y
@@ -342,14 +367,24 @@ random:
     ; sta current_low_2
     ; pla
     ; sta current_high_2
-    stx current_high_2
-    sty current_low_2
-    jsr process_collision_detection
+
+
+
+    ;stx current_high_2
+    ;sty current_low_2
+    ;pla
+    ;tax ; restore x from stack
+    ; FIX AND RESTORE THIS
+    ; jsr process_collision_detection
+
+
+
+
     ; jsr process_collision_detection_stack
-    jsr store_head
+    ;jsr store_head
     jsr move_head
 
-    jsr process_tail
+    ;jsr process_tail
 	rts
 .endproc
 
@@ -365,22 +400,33 @@ random:
     ; Record the movement to the "linked list"
     ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
     ; Mark the current head with the direction to the new head
-    lda cur_dir ; We just store directions so the tail can follow along
-    ldy head_index
+    lda cur_dir, x ; We just store directions so the tail can follow along
+    ldy head_index, x
+    ; TODO - Support multiple snakes
     sta SNAKE, y
     ; Increment to new head
     iny
     ; Store 'h' at the new head since we don't know the direction to its next head yet
     lda #$68 ; h
     sta SNAKE, y
-    sty head_index
+    sty head_index, x
 
-    ; Move head, place on nmi queu
-    ldx new_x
-    stx head_x
-    ldy new_y
-    sty head_y
-    jsr ppu_update_tile
+    ;txa
+    ;pha ; store x (snake index) on stack
+    ; Move head, place on nmi queue
+    ;ldx new_x
+    ;stx head_x
+    ;ldy new_y
+    ;sty head_y
+    lda new_x
+    sta temp_x
+    lda new_y
+    sta temp_y
+    lda #$68 ; h
+    sta temp_a
+    jsr ppu_update_tile_temp
+    ;pla
+    ;tax ; restore x (snake index) from stack
     rts
 .endproc
 
@@ -462,43 +508,47 @@ random:
     cmp #$69 ; food!
     bne @no_coll
         ;jmp inf_loop
-        lda target_size
+        lda target_size, x
         clc
         adc #$07
-        sta target_size
-        jsr place_food
+        sta target_size, x
+        txa
+        pha ; store x on stack
+        jsr place_food ; this is destructive to the x and y registers
+        pla
+        tax ; restore x from stack
     @no_coll:
     rts
 .endproc
 
 ; Same as above but uses stack. Useful if the caller uses the index registers.
-.proc process_collision_detection_stack
-    pla ; HIGH Byte
-    sta current_high_2
-    pla ; LOW Byte
-    sta current_low_2
-    ldy #$00
-    ; Check tile ran into
-    lda (current_low_2), y
-    cmp #$68
-    bne no_self
-        jmp inf_loop
-    no_self:
-    cmp #$58
-    bne no_wall
-        jmp inf_loop
-    no_wall:
-    cmp #$69 ; food!
-    bne @no_coll
-        ;jmp inf_loop
-        lda target_size
-        clc
-        adc #$07
-        sta target_size
-        jsr place_food
-    @no_coll:
-    rts
-.endproc
+; .proc process_collision_detection_stack
+;     pla ; HIGH Byte
+;     sta current_high_2
+;     pla ; LOW Byte
+;     sta current_low_2
+;     ldy #$00
+;     ; Check tile ran into
+;     lda (current_low_2), y
+;     cmp #$68
+;     bne no_self
+;         jmp inf_loop
+;     no_self:
+;     cmp #$58
+;     bne no_wall
+;         jmp inf_loop
+;     no_wall:
+;     cmp #$69 ; food!
+;     bne @no_coll
+;         ;jmp inf_loop
+;         lda target_size
+;         clc
+;         adc #$07
+;         sta target_size
+;         jsr place_food
+;     @no_coll:
+;     rts
+; .endproc
 
 .proc inf_loop
     @forever:
@@ -723,6 +773,22 @@ ppu_address_tile:
 	sta $2006 ; low bits of Y + X
 	rts
 
+tile_to_screen_space_temp:
+    tya ; store Y on stack
+    pha
+    txa ; store X on stack
+    pha
+    ldx temp_x
+    ldy temp_y
+    jsr tile_to_screen_space_xy
+    stx current_high_2
+    sty current_low_2
+    pla ; get X from stack
+    tax
+    pla ; get Y from stack
+    tay
+	rts
+
 ; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
 ; IN
 ; x = x
@@ -842,6 +908,26 @@ convert_screen_space_to_screen_memory_stack:
     ldx zp_temp_1 ; Restore original x and y registers
     ldy zp_temp_2
     rts
+
+; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
+ppu_update_tile_temp:
+    pha ; store A on stack
+    txa
+    pha ; store X on stack
+    tya
+    pha ; store Y on stack
+
+    lda temp_a
+    ldx temp_x
+    ldy temp_y
+    jsr ppu_update_tile
+
+    pla ; Get Y from stack
+    tay
+    pla ; Get X from stack
+    tax
+    pla ; Get A from stack
+	rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
 ppu_update_tile:
