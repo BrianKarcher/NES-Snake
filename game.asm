@@ -328,8 +328,9 @@ random:
     @loop:
     jsr move_snakex
     inx
-    cpx #$02
+    cpx #$01
     bne @loop
+    rts
 .endproc
 
 .proc move_snakex
@@ -381,10 +382,10 @@ random:
 
 
     ; jsr process_collision_detection_stack
-    ;jsr store_head
+    jsr store_head
     jsr move_head
 
-    ;jsr process_tail
+    jsr process_tail
 	rts
 .endproc
 
@@ -432,21 +433,30 @@ random:
 
 .proc process_tail
     ; Move tail?
-    lda size
-    cmp target_size
+    lda size, x
+    cmp target_size, x
     bne grow
         ; Remove the current tail via nmi queue
+        ;lda #$00 ; h
+        ;ldx tail_x
+        ;ldy tail_y
+        lda tail_x, x
+        sta temp_x
+        lda tail_y, x
+        sta temp_y
         lda #$00 ; h
-        ldx tail_x
-        ldy tail_y
-        jsr ppu_update_tile
+        sta temp_a
+        jsr ppu_update_tile_temp
 
-        ldx tail_x
-        ldy tail_y
-
-        jsr tile_to_screen_space_xy
-        stx current_high_2
-        sty current_low_2
+        ;ldx tail_x
+        ;ldy tail_y
+        lda tail_x, x
+        sta temp_x
+        lda tail_y, x
+        sta temp_y
+        jsr tile_to_screen_space_temp
+        ;stx current_high_2
+        ;sty current_low_2
         ldy #$00
         ; Erase the tail
         ; This is optional, more for debugging
@@ -455,29 +465,29 @@ random:
         ; We are at target size, move the tail along
 
         ; Move the tail
-        ldy tail_index
-        inc tail_index
+        ldy tail_index, x
+        inc tail_index, x
         lda SNAKE, Y
         cmp #BUTTON_UP
         bne @not_up
-            dec tail_y
+            dec tail_y, x
             jmp tail_done
         @not_up:
         cmp #BUTTON_DOWN
         bne @not_down
-            inc tail_y
+            inc tail_y, x
             jmp tail_done
         @not_down:
         cmp #BUTTON_LEFT
         bne @not_left
-            dec tail_x
+            dec tail_x, x
             jmp tail_done
         @not_left:
-            inc tail_x
+            inc tail_x, x
             jmp tail_done
         jmp tail_done
     grow:
-        inc size
+        inc size, x
         jmp tail_end
 
     tail_done:
