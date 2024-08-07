@@ -194,9 +194,6 @@ lda #$1e
 sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
-lda #BUTTON_RIGHT
-sta cur_dir
-sta next_dir
 
 .proc game
     jsr initialize_variables
@@ -222,7 +219,7 @@ random:
     .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
 .proc initialize_variables
-    lda #$1
+    lda #$2
     sta player_count
     lda #$10
     sta snake_speed
@@ -241,6 +238,9 @@ random:
 
     ldy #$00
     init_snake:
+        lda #BUTTON_RIGHT
+        sta cur_dir, y
+        sta next_dir, y
         lda #$07
         sta target_size, y
         lda START_X, y
@@ -356,7 +356,7 @@ random:
     jsr move_snake_on_input
     jsr move_snakex
     inx
-    cpx #$01
+    cpx player_count
     bne @loop
     rts
 .endproc
@@ -429,15 +429,21 @@ random:
     ; Record the movement to the "linked list"
     ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
     ; Mark the current head with the direction to the new head
+
+    lda snakes_hi, x
+    sta current_high
+    lda snakes_lo, x
+    sta current_low
+
     lda cur_dir, x ; We just store directions so the tail can follow along
     ldy head_index, x
-    ; TODO - Support multiple snakes
-    sta SNAKE, y
+    sta (current_low), y
     ; Increment to new head
     iny
     ; Store 'h' at the new head since we don't know the direction to its next head yet
     lda #$68 ; h
-    sta SNAKE, y
+    sta (current_low), y
+    ;sta SNAKE, y
     sty head_index, x
 
     ;txa
@@ -447,9 +453,9 @@ random:
     ;stx head_x
     ;ldy new_y
     ;sty head_y
-    lda new_x
+    lda new_x, x
     sta temp_x
-    lda new_y
+    lda new_y, x
     sta temp_y
     lda #$68 ; h
     sta temp_a
@@ -472,7 +478,7 @@ random:
         sta temp_x
         lda tail_y, x
         sta temp_y
-        lda #$00 ; h
+        lda #$00 ; empty
         sta temp_a
         jsr ppu_update_tile_temp
 
@@ -493,9 +499,15 @@ random:
         ; We are at target size, move the tail along
 
         ; Move the tail
+        lda snakes_hi, x
+        sta current_high
+        lda snakes_lo, x
+        sta current_low
+        lda #$0
+
         ldy tail_index, x
         inc tail_index, x
-        lda SNAKE, Y
+        lda (current_low), Y
         cmp #BUTTON_UP
         bne @not_up
             dec tail_y, x
