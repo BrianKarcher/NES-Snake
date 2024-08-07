@@ -285,13 +285,18 @@ random:
     ; sty current_low_2
     jsr store_head
 
+    lda snakes_hi, x
+    sta current_high
+    lda snakes_lo, x
+    sta current_low
+
     lda #$68 ; h
     ldy #$0
-    sta SNAKE, y
+    sta (current_low), y
     ; place head on nmi queue
-    lda new_x
+    lda new_x, x
     sta temp_x
-    lda new_y
+    lda new_y, x
     sta temp_y
     ; ldx new_x
     ; ldy new_y
@@ -299,7 +304,7 @@ random:
     inc size, x
 
     inx
-    cpx #player_count
+    cpx player_count
     bne @loop
     rts
 .endproc
