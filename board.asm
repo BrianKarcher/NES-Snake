@@ -2,13 +2,14 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.importzp random_index
+.importzp random_index, temp_x, temp_y
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile
 .export draw_board, place_food
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
 .byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
+;.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
@@ -21,8 +22,16 @@ board0:
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4
+
+title:
+    .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+;level:
+;    .byte "Level", $1A
+;food:
+;    .byte "Food", $1A
 
 
 ; board0:
@@ -94,6 +103,7 @@ load_board_to_nt:
 
     ; It's easier to load it into the ppu memory first
     ;jsr ppu_load
+    jsr title_to_ppu_load
     jsr board_to_ppu_load
 
     lda #<screen
@@ -142,10 +152,27 @@ load_board_to_nt:
 ;     bne noexit
 ; rts
 
+title_to_ppu_load:
+    lda #>NT0
+    sta PPU_ADDRESS
+    lda #<NT0
+    sta PPU_ADDRESS
+    ;ldx #$0
+    ldy #$0
+    @fory:
+        ; This is just a memory span, no need to loop x
+        lda title, y
+        sta PPU_DATA ; PPU memory
+        iny
+    cpy #$40 ; 64, two full lines
+    bne @fory
+rts
+
 board_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
+    adc #$3f ; skip the title area
     sta PPU_ADDRESS
     ldx #$0
     ldy #$0
@@ -207,7 +234,7 @@ board_to_ppu_load:
         sta zp_temp_2
         inc zp_temp_3
         lda zp_temp_3 ; row count
-        cmp #$f ; 15
+        cmp #$e ; 14
     bne @fory
 rts
 

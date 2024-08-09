@@ -3,7 +3,7 @@
 
 .import init, load_palette, draw_board, place_food
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.export random_index, random, tile_to_screen_space_xy, ppu_update_tile
+.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, temp_x, temp_y
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -361,6 +361,10 @@ random:
     rts
 .endproc
 
+; Moves one snake while checking for collision
+; IN
+; X = snake number (0 = snake 1, 1 = snake 2)
+; Using temp variables and the stack - when possible, instead of obliterating the x register, to simplify code and reduce bugs.
 .proc move_snakex
     ;txa ; This code is a mess.
     ;pha ; store x on stack
@@ -374,6 +378,8 @@ random:
     ;tay
 
     ;jsr tile_to_screen_space_xy
+    ; Using the temp variable version of the routine so X remains intact
+    ; This has the unintended side effect of making indexing cleaner, further simplifying code.
     lda new_y, x
     sta temp_y
     lda new_x, x
@@ -409,7 +415,7 @@ random:
 
 
 
-    ; jsr process_collision_detection_stack
+    jsr process_collision_detection
     jsr store_head
     jsr move_head
 
