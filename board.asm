@@ -2,8 +2,8 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.importzp random_index, temp_x, temp_y
-.import screen, random, tile_to_screen_space_xy, ppu_update_tile
+.importzp random_index, temp_a, temp_x, temp_y
+.import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, ppu_update_tile_screen_space
 .export draw_board, place_food
 
 ; 2x2 tiles. indexes into the tile table below
@@ -26,7 +26,7 @@ board0:
 
 title:
     .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, "L", "e", "v", "e", "l", 0, 0, 0, 0, 0
 
 ;level:
 ;    .byte "Level", $1A
@@ -172,7 +172,8 @@ board_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
-    adc #$3f ; skip the title area
+    clc
+    adc #$40 ; skip the title area
     sta PPU_ADDRESS
     ldx #$0
     ldy #$0
@@ -243,6 +244,8 @@ ppu_to_screen_space:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
+    clc
+    adc #$40 ; skip the title area
     sta PPU_ADDRESS
 
     ; Load the buffer
@@ -254,23 +257,23 @@ ppu_to_screen_space:
     ;This transfers from ppu memory to screen memory
     ;x and y are flip flopped because indirect indexing forces us to use y :(
     fory:
-    ldy #$0
-    forx:
-    ; loop:
-    ; Transfer the current memory from the PPU to the screen space
-    lda PPU_DATA ; PPU memory
-    sta (current_low), y
-    ;sta (current_low_2), y ; CPU screen memory
+        ldy #$0
+        forx:
+            ; loop:
+            ; Transfer the current memory from the PPU to the screen space
+            lda PPU_DATA ; PPU memory
+            sta (current_low), y
+            ;sta (current_low_2), y ; CPU screen memory
 
-    ; Increment the address
-    iny
-    jmp checkexit
-    noexit:
-    cpy #$00 ; page flip?
-    bne forx
+            ; Increment the address
+            iny
+            jmp checkexit
+        noexit:
+        cpy #$00 ; page flip?
+        bne forx
 
-    inc current_high
-    ;inc current_high_2
+        inc current_high
+        ;inc current_high_2
     inx
     cpx #$1e ; 30
     bne fory
@@ -301,17 +304,24 @@ place_food:
     lda current_low_2
     pha
     jsr find_blank_tile
-    txa ; temporarily store X on stack
-    pha
-    tya ; temporarily store Y on stack
-    pha
+    ; txa ; temporarily store X on stack
+    ; pha
+    ; tya ; temporarily store Y on stack
+    ; pha
     lda #$69
-    jsr ppu_update_tile ; Place in PPU queue before we start destroying the y register
+    sta temp_a
+    tya
+    ; clc
+    ; adc #$02 ; align with screen
+    sta temp_y
+    txa
+    sta temp_x
+    jsr ppu_update_tile_screen_space ; Place in PPU queue before we start destroying the y register
     
-    pla ; Pull Y off the stack
-    tay
-    pla ; Pull X off the stack
-    tax
+    ; pla ; Pull Y off the stack
+    ; tay
+    ; pla ; Pull X off the stack
+    ; tax
 
     jsr tile_to_screen_space_xy
     stx current_high_2
@@ -320,9 +330,9 @@ place_food:
 
     lda #$69
     sta (current_low_2), y
-    pla
+    pla ; pull low byte from stack
     sta current_low_2
-    pla
+    pla ; pull high byte from stack
     sta current_high_2
     ;ldy #$0
     ;sta (current_low_2), y
@@ -343,8 +353,12 @@ find_blank_tile:
     tax
     find_y:
     jsr get_random_axis
-    cmp #$1e ; 30
+    cmp #$1c ; 28
     bpl find_y ; Find another y if > 30
+    ; cmp #$00 ; Title area? Find a new y
+    ; beq find_y
+    ; cmp #$01 ; Title area
+    ; beq find_y
     ;sta zp_temp_2 ; store y
     pha ; Store y onto stack
     tay
@@ -354,6 +368,7 @@ find_blank_tile:
     ; Check if the tile is free
     ldy #$0
     lda (current_low_2), Y
+    ; TODO Use tile types instead of tile id's
     cmp #$58
     beq fail
     cmp #$69

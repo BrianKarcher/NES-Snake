@@ -3,7 +3,7 @@
 
 .import init, load_palette, draw_board, place_food
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, temp_x, temp_y
+.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_screen_space, temp_a, temp_x, temp_y
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -300,7 +300,7 @@ random:
     sta temp_y
     ; ldx new_x
     ; ldy new_y
-    jsr ppu_update_tile_temp
+    jsr ppu_update_tile_screen_space
     inc size, x
 
     inx
@@ -465,7 +465,7 @@ random:
     sta temp_y
     lda #$68 ; h
     sta temp_a
-    jsr ppu_update_tile_temp
+    jsr ppu_update_tile_screen_space
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
@@ -486,7 +486,7 @@ random:
         sta temp_y
         lda #$00 ; empty
         sta temp_a
-        jsr ppu_update_tile_temp
+        jsr ppu_update_tile_screen_space
 
         ;ldx tail_x
         ;ldy tail_y
@@ -616,7 +616,7 @@ process_input:
     @loop:
     jsr process_inputx
     inx
-    cpx #$02
+    cpx player_count
     bne @loop
     rts
 
@@ -782,7 +782,7 @@ ppu_update:
 	:
         ldx #00
         ;jsr readjoyx_safe
-        jsr process_input
+        ;jsr process_input
 		lda nmi_ready
 		bne :-
 	rts
@@ -965,7 +965,18 @@ convert_screen_space_to_screen_memory_stack:
     ldy zp_temp_2
     rts
 
-; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
+; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update using screen space
+ppu_update_tile_screen_space:
+    pha ; store A on stack
+    lda temp_y
+    clc
+    ; Adjust Y down to account for the header
+    adc #$02
+    sta temp_y
+    pla ; Get A from stack
+    ; Fall through to next subroutine
+
+; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
 ppu_update_tile_temp:
     pha ; store A on stack
     txa
