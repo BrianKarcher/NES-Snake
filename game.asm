@@ -3,7 +3,7 @@
 
 .import init, load_palette, draw_board, place_food
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_screen_space, temp_a, temp_x, temp_y
+.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -80,6 +80,7 @@ temp_a:         .res 1
 temp_x:         .res 1
 temp_y:         .res 1
 player_count:   .res 1
+current_level:  .res 1
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -183,6 +184,8 @@ lda #$20            ; High byte of sprite_data address
 sta OAM_ADDRESS           ; Store high byte into OAMADDR
 
 ; Trigger OAMDMA transfer
+lda #$01
+sta current_level
 jsr draw_board
 jsr place_food
 ;jsr place_food
@@ -219,7 +222,7 @@ random:
     .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
 .proc initialize_variables
-    lda #$2
+    lda #$1
     sta player_count
     lda #$10
     sta snake_speed
@@ -228,7 +231,7 @@ random:
     lda #$09
     ldy #$0
     sta START_X, y
-    lda #$0e
+    lda #$0f
     sta START_Y, y
     lda #$10
     ldy #$01
@@ -264,11 +267,6 @@ random:
 
 .endproc
 
-; .proc setup_game_variables
-
-;     rts
-; .endproc
-
 .proc setup_game_variables
     ldx #$0
     @loop:
@@ -277,12 +275,9 @@ random:
     sta temp_x
     lda new_y, x
     sta temp_y
-    ; ldx new_x
-    ; ldy new_y
+
     jsr tile_to_screen_space_temp
 
-    ; stx current_high_2
-    ; sty current_low_2
     jsr store_head
 
     lda snakes_hi, x
@@ -291,6 +286,7 @@ random:
     sta current_low
 
     lda #$68 ; h
+    sta temp_a
     ldy #$0
     sta (current_low), y
     ; place head on nmi queue
@@ -298,9 +294,8 @@ random:
     sta temp_x
     lda new_y, x
     sta temp_y
-    ; ldx new_x
-    ; ldy new_y
-    jsr ppu_update_tile_screen_space
+    jsr screen_space_to_ppu_space
+    jsr ppu_update_tile_temp
     inc size, x
 
     inx
@@ -465,7 +460,8 @@ random:
     sta temp_y
     lda #$68 ; h
     sta temp_a
-    jsr ppu_update_tile_screen_space
+    jsr screen_space_to_ppu_space
+    jsr ppu_update_tile_temp
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
@@ -486,7 +482,8 @@ random:
         sta temp_y
         lda #$00 ; empty
         sta temp_a
-        jsr ppu_update_tile_screen_space
+        jsr screen_space_to_ppu_space
+        jsr ppu_update_tile_temp
 
         ;ldx tail_x
         ;ldy tail_y
@@ -965,8 +962,7 @@ convert_screen_space_to_screen_memory_stack:
     ldy zp_temp_2
     rts
 
-; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update using screen space
-ppu_update_tile_screen_space:
+screen_space_to_ppu_space:
     pha ; store A on stack
     lda temp_y
     clc
@@ -974,7 +970,7 @@ ppu_update_tile_screen_space:
     adc #$02
     sta temp_y
     pla ; Get A from stack
-    ; Fall through to next subroutine
+rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
 ppu_update_tile_temp:
