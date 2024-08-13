@@ -1,9 +1,10 @@
 ; main game Loop
 .include "constants.asm"
 
-.import init, load_palette, draw_board, place_food
+.import init, load_palette, draw_board, place_food, place_header_food
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level
+.export food_count
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -200,6 +201,7 @@ sta $4010  ; enable DMC IRQs
 
 .proc game
     jsr initialize_variables
+    jsr place_header_food
     jsr setup_game_variables
 
     @loop:

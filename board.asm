@@ -2,9 +2,9 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.importzp random_index, temp_a, temp_x, temp_y, current_level
+.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space
-.export draw_board, place_food
+.export draw_board, place_food, place_header_food
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -21,20 +21,20 @@ board0:
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4
+.byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
 
 board1:
 .byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
+.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
@@ -42,7 +42,7 @@ board1:
 boards:
 .word board0, board1
 
-title:
+header:
     .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, "L", "e", "v", "e", "l", 0, 0, 0, 0, 0
 
@@ -60,6 +60,7 @@ title:
 ; I should build a level editor for this...
 ; 0 = empty
 ; 1 = wall
+;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 top_left:
 .byte 0, 1, 1, 1, 0, 1, 1, 0, 0, 1
 
@@ -75,10 +76,12 @@ bottom_right:
 color:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-.proc draw_board
+food_indexes:
+    .byte 6, 20
+
+draw_board:
     jsr load_board_to_nt
-    rts
-.endproc
+rts
 
 load_board_to_nt:
     ; locate board
@@ -94,7 +97,7 @@ load_board_to_nt:
 
     ; It's easier to load it into the ppu memory first
     ;jsr ppu_load
-    jsr title_to_ppu_load
+    jsr header_to_ppu_load
     jsr board_to_ppu_load
 
     lda #<screen
@@ -103,7 +106,7 @@ load_board_to_nt:
     sta current_high
     jsr ppu_to_screen_space
 
-    rts
+rts
 
 ; tile_map_to_screen:
 ;     ldx #$0
@@ -143,7 +146,7 @@ load_board_to_nt:
 ;     bne noexit
 ; rts
 
-title_to_ppu_load:
+header_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
@@ -152,11 +155,34 @@ title_to_ppu_load:
     ldy #$0
     @fory:
         ; This is just a memory span, no need to loop x
-        lda title, y
+        lda header, y
         sta PPU_DATA ; PPU memory
         iny
     cpy #$40 ; 64, two full lines
     bne @fory
+rts
+
+place_header_food:
+    txa
+    pha ; place x on stack
+    ldx #$0
+    jsr place_header_foodx
+    inx
+    jsr place_header_foodx
+    pla ; remove x from stack
+    tax
+rts
+
+place_header_foodx:
+    lda #$1
+    sta temp_y
+    lda food_indexes, X
+    sta temp_x
+    lda food_count, x
+    clc
+    adc #$30 ; number to CHR offset
+    sta temp_a
+    jsr ppu_update_tile_temp
 rts
 
 board_to_ppu_load:
