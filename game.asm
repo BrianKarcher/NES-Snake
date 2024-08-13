@@ -572,9 +572,24 @@ random:
         jsr place_food ; this is destructive to the x and y registers
         pla
         tax ; restore x from stack
+        inc food_count, x
+        jsr place_header_food
+        jsr check_level_change
     @no_coll:
     rts
 .endproc
+
+check_level_change:
+    lda food_count, X
+    cmp #LEVEL_CHANGE
+    bne rtn
+        jsr process_level_change
+    rtn:
+rts
+
+process_level_change:
+    jsr inf_loop
+rts
 
 ; Same as above but uses stack. Useful if the caller uses the index registers.
 ; .proc process_collision_detection_stack
