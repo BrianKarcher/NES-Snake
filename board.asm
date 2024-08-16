@@ -4,7 +4,7 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space
-.export draw_board, place_food, place_header_food
+.export draw_board, place_food, place_header_food, print_level_end_message
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -45,6 +45,9 @@ boards:
 header:
     .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, "L", "e", "v", "e", "l", 0, 0, 0, 0, 0
+
+level_complete_message:
+    .byte "Level Complete!", $00
 
 ;level:
 ;    .byte "Level", $1A
@@ -421,4 +424,35 @@ get_random_axis:
     lsr
     lsr
     lsr ; Shift right three times to convert 0-256 to 0-32
-    rts
+rts
+
+print_level_end_message:
+    lda #$a ; 10
+    sta temp_x
+    lda #$f ; 15
+    sta temp_y
+    lda #<level_complete_message
+    sta current_low
+    lda #>level_complete_message
+    sta current_high
+    jsr print_text
+rts
+
+; Prints text to the screen. Text will appear on the next NMI update.
+; IN
+; temp_x = x position of text
+; temp_y = y position of text
+; current_low = low byte of text address
+; current_high = high byte of text address
+print_text:
+    ldy #$0
+    loop:
+        lda (current_low), y
+        beq done ; 0 = null character, end
+        sta temp_a
+        jsr ppu_update_tile_temp
+        iny
+        inc temp_x
+        jmp loop
+    done:
+rts

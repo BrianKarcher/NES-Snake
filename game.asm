@@ -1,7 +1,7 @@
 ; main game Loop
 .include "constants.asm"
 
-.import init, load_palette, draw_board, place_food, place_header_food
+.import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level
 .export food_count
@@ -82,6 +82,7 @@ temp_x:         .res 1
 temp_y:         .res 1
 player_count:   .res 1
 current_level:  .res 1
+level_complete: .res 1
 
 ;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
@@ -184,14 +185,9 @@ sta OAM_ADDRESS           ; Store low byte into OAMADDR
 lda #$20            ; High byte of sprite_data address
 sta OAM_ADDRESS           ; Store high byte into OAMADDR
 
-; Trigger OAMDMA transfer
-lda #$01
-sta current_level
-jsr draw_board
-jsr place_food
-;jsr place_food
-;jsr place_food
+jsr init_game
 
+; Trigger OAMDMA transfer
 lda #$80
 sta $2000  ; enable NMI
 lda #$1e
@@ -200,10 +196,6 @@ lda #$ff
 sta $4010  ; enable DMC IRQs
 
 .proc game
-    jsr initialize_variables
-    jsr place_header_food
-    jsr setup_game_variables
-
     @loop:
         inc random_index
         ldx #$00
@@ -212,6 +204,19 @@ sta $4010  ; enable DMC IRQs
 		jsr process_snake
 		jsr ppu_update
 	jmp @loop
+.endproc
+
+.proc init_game
+    lda #$01
+    sta current_level
+    jsr draw_board
+    jsr place_food
+    ;jsr place_food
+    ;jsr place_food
+    jsr initialize_variables
+    jsr place_header_food
+    jsr setup_game_variables
+    rts
 .endproc
 
 random:
@@ -265,8 +270,6 @@ random:
     bne init_snake
     rts
 
-    recordx:
-
 .endproc
 
 .proc setup_game_variables
@@ -313,6 +316,9 @@ random:
     lda #$00
 	sta tick_count ; reset frame counter
     jsr move_snake
+    lda level_complete
+    beq @end
+        jsr process_level_change
     @end:
     rts
 .endproc
@@ -583,11 +589,15 @@ check_level_change:
     lda food_count, X
     cmp #LEVEL_CHANGE
     bne rtn
-        jsr process_level_change
+        lda #$01
+        sta level_complete
+        ;jsr process_level_change
     rtn:
 rts
 
 process_level_change:
+    jsr print_level_end_message
+    jsr ppu_update
     jsr inf_loop
 rts
 
