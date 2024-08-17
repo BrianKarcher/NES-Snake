@@ -41,50 +41,46 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 ; .byte 0                ; Flags 9: TV system (rarely used)
 ; .byte 0, 0, 0, 0, 0, 0    ; Unused padding bytes
 
+; I've commented the memory addresses to make debugging easier. It is a nightmare without these.
 .segment "ZEROPAGE"
-nmi_lock:       .res 1 ; prevents NMI re-entry
-nmi_ready:      .res 1 ; set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
-buttons:        .res 2
-nmi_count:      .res 1
-tick_count:     .res 1
-head_x:         .res 2 ; Enable two-player
-head_y:         .res 2
-new_x:          .res 2
-new_y:          .res 2
-tail_x:         .res 2
-tail_y:         .res 2
-snake_update:   .res 1
-next_dir:       .res 2
-cur_dir:        .res 2
-target_size:    .res 2
-size:           .res 2
-head_index:     .res 2
-tail_index:     .res 2 ; 0x17
-zp_temp_1:      .res 1
-zp_temp_2:      .res 1
-zp_temp_3:      .res 1
-nmt_update_len: .res 1 ; number of bytes in nmt_update buffer
-;start_low:      .res 1  ; Low byte of start address
-;start_high:     .res 1  ; High byte of start address
-end_low:        .res 1  ; Low byte of end address
-end_high:       .res 1  ; High byte of end address
-current_low:    .res 1  ; Low byte of current address, this is a memory pointer for indirect indexing
-current_high:   .res 1  ; High byte of current address
-;start_low_2:    .res 1
-;start_high_2:   .res 1
-current_low_2:  .res 1
-current_high_2: .res 1
-snake_speed:    .res 1
-random_index:   .res 1
-food_count:     .res 2
-temp_a:         .res 1
-temp_x:         .res 1
-temp_y:         .res 1
-player_count:   .res 1
-current_level:  .res 1
-level_complete: .res 1
+nmi_lock:       .res 1 ; 00 prevents NMI re-entry
+nmi_ready:      .res 1 ; 01 set to 1 to push a PPU frame update, 2 to turn rendering off next NMI
+buttons:        .res 2 ; 02, 03
+nmi_count:      .res 1 ; 04
+tick_count:     .res 1 ; 05
+head_x:         .res 2 ; 06, 07 Enable two-player
+head_y:         .res 2 ; 08, 09
+new_x:          .res 2 ; 0a, 0b
+new_y:          .res 2 ; 0c, 0d
+tail_x:         .res 2 ; 0e, 0f
+tail_y:         .res 2 ; 10, 11
+snake_update:   .res 1 ; 12
+next_dir:       .res 2 ; 13, 14
+cur_dir:        .res 2 ; 15, 16
+target_size:    .res 2 ; 17, 18
+size:           .res 2 ; 19, 1a
+head_index:     .res 2 ; 1b, 1c
+tail_index:     .res 2 ; 1d, 1e 0x17
+zp_temp_1:      .res 1 ; 1f
+zp_temp_2:      .res 1 ; 20
+zp_temp_3:      .res 1 ; 21
+nmt_update_len: .res 1 ; 22 number of bytes in nmt_update buffer
+end_low:        .res 1 ; 23 Low byte of end address
+end_high:       .res 1 ; 24 High byte of end address
+current_low:    .res 1 ; 25 Low byte of current address, this is a memory pointer for indirect indexing
+current_high:   .res 1 ; 26 High byte of current address
+current_low_2:  .res 1 ; 27
+current_high_2: .res 1 ; 28
+snake_speed:    .res 1 ; 29
+random_index:   .res 1 ; 2a
+food_count:     .res 2 ; 2b, 2c
+temp_a:         .res 1 ; 2d
+temp_x:         .res 1 ; 2e
+temp_y:         .res 1 ; 2f
+player_count:   .res 1 ; 30
+current_level:  .res 1 ; 31
+level_complete: .res 1 ; 32
 
-;nmt_update = $6ff
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
 screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
@@ -272,6 +268,7 @@ random:
         sta head_index, y
         sta tail_index, y
         sta food_count, y
+        sta size, y
         iny
     cpy #$02
     bne init_snake
@@ -319,12 +316,12 @@ random:
 	lda tick_count
     cmp snake_speed ; snake speed - how many ticks to skip between updates.
 	bne @end
-    lda #$00
-	sta tick_count ; reset frame counter
-    jsr move_snake
-    lda level_complete
-    beq @end
-        jsr process_level_change
+        lda #$00
+        sta tick_count ; reset frame counter
+        jsr move_snake
+        lda level_complete
+        beq @end
+            jsr process_level_change
     @end:
     rts
 .endproc
