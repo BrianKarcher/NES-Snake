@@ -82,6 +82,7 @@ color:
 food_indexes:
     .byte 6, 20
 
+; Make sure PPU rendering is OFF before calling this
 draw_board:
     jsr load_board_to_nt
 rts
@@ -426,6 +427,7 @@ get_random_axis:
     lsr ; Shift right three times to convert 0-256 to 0-32
 rts
 
+; The message will display on the next nmi update.
 print_level_end_message:
     lda #$a ; 10
     sta temp_x

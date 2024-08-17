@@ -13,7 +13,7 @@ START_Y         = $0502
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20
 JOYPAD1         = $4016
-LEVEL_CHANGE    = $03
+LEVEL_CHANGE    = $01
 
 BUTTON_A      = 1 << 7
 BUTTON_B      = 1 << 6

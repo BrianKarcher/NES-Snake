@@ -186,6 +186,7 @@ lda #$20            ; High byte of sprite_data address
 sta OAM_ADDRESS           ; Store high byte into OAMADDR
 
 jsr init_game
+jsr init_level
 
 ; Trigger OAMDMA transfer
 lda #$80
@@ -207,16 +208,27 @@ sta $4010  ; enable DMC IRQs
 .endproc
 
 .proc init_game
-    lda #$01
+    lda #$00
     sta current_level
+    ; TODO player_count and snake_speed to be in-game user-selected values
+    lda #$1
+    sta player_count
+    lda #$10
+    sta snake_speed
+    rts
+.endproc
+
+.proc init_level
+    lda #$00
+    sta level_complete
     jsr draw_board
     jsr place_food
     ;jsr place_food
     ;jsr place_food
-    jsr initialize_variables
+    jsr init_level_variables
     jsr place_header_food
-    jsr setup_game_variables
-    rts
+    jsr init_place_snake
+rts
 .endproc
 
 random:
@@ -228,12 +240,7 @@ random:
     .byte $c8,$ff,$31,$7e,$b6,$0f,$cd,$74,$76,$ce,$05,$7d,$67,$2a,$ec,$b0,$98,$6d,$c6,$d1,$16,$f9,$f7,$84,$f1,$0c,$43,$c4,$c1,$65,$fd,$13,$bd,$1d,$b8,$47
     .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
-.proc initialize_variables
-    lda #$1
-    sta player_count
-    lda #$10
-    sta snake_speed
-
+.proc init_level_variables
     ; TODO - Move these to a board tile.
     lda #$09
     ldy #$0
@@ -269,10 +276,9 @@ random:
     cpy #$02
     bne init_snake
     rts
-
 .endproc
 
-.proc setup_game_variables
+.proc init_place_snake
     ldx #$0
     @loop:
 
@@ -596,10 +602,24 @@ check_level_change:
 rts
 
 process_level_change:
-    jsr print_level_end_message
+    ;jsr print_level_end_message
     jsr ppu_update
-    jsr inf_loop
+    ; loop:
+
+    ; jmp loop
+    @end:
+    inc current_level
+    jsr ppu_off
+    jsr init_level
+    ; Wait for next frame and turns PPU rendering back on
+    jsr ppu_on
+    jsr ppu_update
+    ;jsr inf_loop
 rts
+
+;delete_snake:
+
+;rts
 
 ; Same as above but uses stack. Useful if the caller uses the index registers.
 ; .proc process_collision_detection_stack
@@ -827,6 +847,11 @@ ppu_off:
 		lda nmi_ready
 		bne :-
 	rts
+
+ppu_on:
+    lda #$1e
+    sta $2001  ; enable rendering
+rts
 
 ; ppu_address_tile: use with rendering off, sets memory address to tile at X/Y, ready for a $2007 write
 ;   Y =  0- 31 nametable $2000
