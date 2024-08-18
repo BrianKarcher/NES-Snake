@@ -3,7 +3,7 @@
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count
-.import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space
+.import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .export draw_board, place_food, place_header_food, print_level_end_message
 
 ; 2x2 tiles. indexes into the tile table below
@@ -27,6 +27,22 @@ board1:
 .byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
+
+board2:
+.byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
+.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
 .byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
 .byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
 .byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
@@ -40,14 +56,32 @@ board1:
 .byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
 
 boards:
-.word board0, board1
+.word board0, board1, board2
+
+startxs1:
+    .byte $0f, $03, $09
+startys1:
+    .byte $03, $03, $0f
+startxs2:
+    .byte $10, $1a, $10
+startys2:
+    .byte $11, $1a, $11
+
 
 header:
     .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, "L", "e", "v", "e", "l", 0, 0, 0, 0, 0
 
 level_complete_message:
-    .byte "Level Complete!", $00
+    .byte "@@@@@@@@@@@@@@@@@@@@@", 1
+;level_complete_message1:
+    .byte "@                   @", 1
+;level_complete_message2:
+    .byte "@  Level Complete!  @", 1
+;level_complete_message3:
+    .byte "@                   @", 1
+;level_complete_message4:
+    .byte "@@@@@@@@@@@@@@@@@@@@@", 0
 
 ;level:
 ;    .byte "Level", $1A
@@ -79,12 +113,24 @@ bottom_right:
 color:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-food_indexes:
+food_header_offset:
     .byte 6, 20
 
 ; Make sure PPU rendering is OFF before calling this
 draw_board:
     jsr load_board_to_nt
+    ; Load the starting locations for both snakes
+    ldy current_level
+    ldx #$0
+    lda startxs1, y
+    sta START_X, x
+    lda startys1, y
+    sta START_Y, x
+    inx
+    lda startxs2, y
+    sta START_X, x
+    lda startys2, y
+    sta START_Y, x
 rts
 
 load_board_to_nt:
@@ -180,7 +226,7 @@ rts
 place_header_foodx:
     lda #$1
     sta temp_y
-    lda food_indexes, X
+    lda food_header_offset, X
     sta temp_x
     lda food_count, x
     clc
@@ -429,15 +475,17 @@ rts
 
 ; The message will display on the next nmi update.
 print_level_end_message:
-    lda #$a ; 10
+    lda #$7 ; 7
     sta temp_x
-    lda #$f ; 15
+    lda #$d ; 13
     sta temp_y
     lda #<level_complete_message
     sta current_low
     lda #>level_complete_message
     sta current_high
+    ;jsr ppu_off
     jsr print_text
+    ;jsr ppu_on
 rts
 
 ; Prints text to the screen. Text will appear on the next NMI update.
@@ -447,10 +495,22 @@ rts
 ; current_low = low byte of text address
 ; current_high = high byte of text address
 print_text:
+    lda temp_x
+    sta zp_temp_3 ; Record x for carriage return
     ldy #$0
     loop:
         lda (current_low), y
         beq done ; 0 = null character, end
+        cmp #$01
+        bne skip_new_line
+            jsr ppu_update
+            iny ; don't print the new line character
+            ; Do carriage return
+            inc temp_y
+            lda zp_temp_3
+            sta temp_x
+            lda (current_low), y
+        skip_new_line:
         sta temp_a
         jsr ppu_update_tile_temp
         iny

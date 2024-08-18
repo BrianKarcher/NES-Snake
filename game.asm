@@ -4,7 +4,7 @@
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level
-.export food_count
+.export food_count, ppu_update
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -204,7 +204,7 @@ sta $4010  ; enable DMC IRQs
 .endproc
 
 .proc init_game
-    lda #$00
+    lda #$01
     sta current_level
     ; TODO player_count and snake_speed to be in-game user-selected values
     lda #$1
@@ -237,18 +237,6 @@ random:
     .byte $92,$7f,$a3,$57,$5b,$69,$0a,$74,$90,$d7,$3b,$b1,$48,$03,$86,$e0,$eb,$4b,$ef,$17,$e5,$9c,$f1,$2e,$b2,$03,$86,$2b,$0f,$36,$11,$c0,$53,$a9,$2c,$dd,$01
 
 .proc init_level_variables
-    ; TODO - Move these to a board tile.
-    lda #$09
-    ldy #$0
-    sta START_X, y
-    lda #$0f
-    sta START_Y, y
-    lda #$10
-    ldy #$01
-    sta START_X, y
-    lda #$11
-    sta START_Y, y
-
     ldy #$00
     init_snake:
         lda #BUTTON_RIGHT
@@ -599,8 +587,9 @@ check_level_change:
 rts
 
 process_level_change:
-    ;jsr print_level_end_message
+    jsr print_level_end_message
     jsr ppu_update
+    jsr inf_loop
     ; loop:
 
     ; jmp loop
