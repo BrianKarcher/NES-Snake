@@ -99,6 +99,9 @@ snakes_hi:
 snakes_lo:
     .byte <SNAKE, <SNAKE2
 
+head_shape:
+    .byte $06, $07, $16, $17
+
 reset:
     sei        ; ignore IRQs
     cld        ; disable decimal mode
@@ -286,6 +289,8 @@ random:
     ldy #$0
     sta (current_low), y
     ; place head on nmi queue
+    lda #$05
+    sta temp_a
     lda new_x, x
     sta temp_x
     lda new_y, x
@@ -311,6 +316,17 @@ random:
         beq @end
             jsr process_level_change
     @end:
+    rts
+.endproc
+
+.proc move_snake
+    ldx #$0
+    @loop:
+    jsr move_snake_on_input
+    jsr move_snakex
+    inx
+    cpx player_count
+    bne @loop
     rts
 .endproc
 
@@ -341,17 +357,6 @@ random:
     inc new_x, x
 
     @buttonEnd:
-    rts
-.endproc
-
-.proc move_snake
-    ldx #$0
-    @loop:
-    jsr move_snake_on_input
-    jsr move_snakex
-    inx
-    cpx player_count
-    bne @loop
     rts
 .endproc
 
@@ -457,13 +462,30 @@ random:
     sta temp_x
     lda new_y, x
     sta temp_y
-    lda #$68 ; h
+    lda #$05 ; head
     sta temp_a
     jsr screen_space_to_ppu_space
     jsr ppu_update_tile_temp
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
+.endproc
+
+.proc place_shape
+    pha ; store A on stack
+    txa
+    pha ; store X on stack
+    tya
+    pha ; store Y on stack
+
+    ldy #$0
+    
+
+    pla ; restore Y from stack
+    tay
+    pla ; restore X from stack
+    tax
+    pla ; restore A from stack
 .endproc
 
 .proc process_tail
@@ -1122,4 +1144,4 @@ reread:
 	.addr nmi, reset, 0
 
 .segment "CHARS"
-    .incbin "sprites.chr"
+    .incbin "sprites2.chr"

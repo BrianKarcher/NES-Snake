@@ -489,6 +489,8 @@ print_level_end_message:
 rts
 
 ; Prints text to the screen. Text will appear on the next NMI update.
+; Each line gets an NMI update to flush the cache. Also gives an interesting visual effect.
+; Consider adding a delay after a newline to make the effect more pronounced - like a scroll.
 ; IN
 ; temp_x = x position of text
 ; temp_y = y position of text
