@@ -462,30 +462,62 @@ random:
     sta temp_x
     lda new_y, x
     sta temp_y
-    lda #$05 ; head
-    sta temp_a
+    ; lda #$05 ; head
+    ; sta temp_a
+    lda #<head_shape
+    sta current_low
+    lda #>head_shape
+    sta current_high
     jsr screen_space_to_ppu_space
-    jsr ppu_update_tile_temp
+    ;jsr ppu_update_tile_temp
+    jsr place_shape
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
 .endproc
 
-.proc place_shape
-    pha ; store A on stack
-    txa
-    pha ; store X on stack
-    tya
-    pha ; store Y on stack
+.proc place_shape ; places a 2x2 shape
+    lda temp_x
+    asl
+    sta temp_x
+    lda temp_y
+    asl
+    sta temp_y
+    ; This might be easier than doing a nested loop
+    ; 1,1
+    ldy #$0 ; shape offset
+    lda (current_low), y
+    sta temp_a
+    jsr ppu_update_tile_temp
+    ; 2,1
+    iny
+    lda (current_low), y
+    sta temp_a
+    inc temp_x
+    jsr ppu_update_tile_temp
+    ; 1,2
+    iny
+    lda (current_low), y
+    sta temp_a
+    dec temp_x
+    inc temp_y
+    jsr ppu_update_tile_temp
+    ; 2,2
+    iny
+    lda (current_low), y
+    sta temp_a
+    inc temp_x
+    jsr ppu_update_tile_temp
 
-    ldy #$0
+    ; TODO We can skip this if we use different temp variables
+    lda temp_x
+    lsr
+    sta temp_x
+    lda temp_y
+    lsr
+    sta temp_y
     
-
-    pla ; restore Y from stack
-    tay
-    pla ; restore X from stack
-    tax
-    pla ; restore A from stack
+    rts
 .endproc
 
 .proc process_tail
