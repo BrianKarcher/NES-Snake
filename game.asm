@@ -3,7 +3,7 @@
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.export random_index, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level
+.export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
@@ -80,6 +80,7 @@ temp_y:         .res 1 ; 2f
 player_count:   .res 1 ; 30
 current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
+temp_offset:    .res 1 ; 33
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -101,6 +102,9 @@ snakes_lo:
 
 head_shape:
     .byte $06, $07, $16, $17
+
+blank_shape:
+    .byte $00, $00, $00, $00
 
 reset:
     sei        ; ignore IRQs
@@ -275,7 +279,8 @@ random:
     lda new_y, x
     sta temp_y
 
-    jsr tile_to_screen_space_temp
+    jsr xy_meta_tile_offset
+    ;jsr tile_to_screen_space_temp
 
     jsr store_head
 
@@ -295,8 +300,13 @@ random:
     sta temp_x
     lda new_y, x
     sta temp_y
+    lda #<head_shape
+    sta current_low
+    lda #>head_shape
+    sta current_high
     jsr screen_space_to_ppu_space
-    jsr ppu_update_tile_temp
+    ;jsr ppu_update_tile_temp
+    jsr place_shape
     inc size, x
 
     inx
@@ -383,8 +393,13 @@ random:
     sta temp_y
     lda new_x, x
     sta temp_x
-    jsr tile_to_screen_space_temp
+    ;jsr tile_to_screen_space_temp
+    jsr xy_meta_tile_offset
 
+    lda #<screen
+    sta current_low_2
+    lda #>screen
+    sta current_high_2
     ; IN
 ; Stack 0 = x
 ; Stack 1 = y
@@ -425,7 +440,7 @@ random:
 ; Store the head in screen space memory
 .proc store_head
     lda #$68 ; h
-    ldy #$00 ; current_low_2 points to the exact location, no offset
+    ldy temp_offset
     sta (current_low_2), y
     rts
 .endproc
@@ -510,12 +525,12 @@ random:
     jsr ppu_update_tile_temp
 
     ; TODO We can skip this if we use different temp variables
-    lda temp_x
-    lsr
-    sta temp_x
-    lda temp_y
-    lsr
-    sta temp_y
+    ; lda temp_x
+    ; lsr
+    ; sta temp_x
+    ; lda temp_y
+    ; lsr
+    ; sta temp_y
     
     rts
 .endproc
@@ -533,10 +548,15 @@ random:
         sta temp_x
         lda tail_y, x
         sta temp_y
-        lda #$00 ; empty
-        sta temp_a
+        lda #<blank_shape
+        sta current_low
+        lda #>blank_shape
+        sta current_high
+        ; lda #$00 ; empty
+        ; sta temp_a
         jsr screen_space_to_ppu_space
-        jsr ppu_update_tile_temp
+        ;jsr ppu_update_tile_temp
+        jsr place_shape
 
         ;ldx tail_x
         ;ldy tail_y
@@ -544,10 +564,11 @@ random:
         sta temp_x
         lda tail_y, x
         sta temp_y
-        jsr tile_to_screen_space_temp
+        jsr xy_meta_tile_offset
+        ;jsr tile_to_screen_space_temp
         ;stx current_high_2
         ;sty current_low_2
-        ldy #$00
+        ldy temp_offset
         ; Erase the tail
         ; This is optional, more for debugging
         lda #$00
@@ -602,6 +623,7 @@ random:
 .proc process_collision_detection
     ldy #$00
     ; Check tile ran into
+    ldy temp_offset
     lda (current_low_2), y
     cmp #$68
     bne no_self
@@ -918,54 +940,67 @@ ppu_address_tile:
 	sta $2006 ; low bits of Y + X
 	rts
 
-tile_to_screen_space_temp:
-    tya ; store Y on stack
-    pha
-    txa ; store X on stack
-    pha
-    ldx temp_x
-    ldy temp_y
-    jsr tile_to_screen_space_xy
-    stx current_high_2
-    sty current_low_2
-    pla ; get X from stack
-    tax
-    pla ; get Y from stack
-    tay
-	rts
+.proc xy_meta_tile_offset
+    ; Perform calculation y * width(16) + x
+    lda temp_y
+    clc
+    asl
+    asl
+    asl
+    asl
+    adc temp_x
+    sta temp_offset
+    rts
+.endproc
 
-; Converts tile space (x,y from top-left of screen) to Nametable space (single memory span).
+; tile_to_screen_space_temp:
+;     tya ; store Y on stack
+;     pha
+;     txa ; store X on stack
+;     pha
+;     ldx temp_x
+;     ldy temp_y
+;     jsr tile_to_screen_space_xy
+;     stx current_high_2
+;     sty current_low_2
+;     pla ; get X from stack
+;     tax
+;     pla ; get Y from stack
+;     tay
+; 	rts
+
+; Converts tile space (x,y from top-left of screen) to Screen space (single memory span).
 ; IN
 ; x = x
 ; y = y
 ; OUT
 ; x = HIGH BYTE of screen space
 ; y = LOW BYTE of screen space
-tile_to_screen_space_xy:
-	;lda $2002 ; reset latch
-	tya
-	lsr
-	lsr
-	lsr
-	;ora #$20 ; high bits of Y + $20
-    pha ; Store High Byte on stack
-	;sta zp_temp_1
-	tya
-	asl
-	asl
-	asl
-	asl
-	asl
-	sta zp_temp_3
-	txa
-	ora zp_temp_3
-    tay ; Store low byte into Y
-    pla ; Pull High Byte from stack
-    tax
-    ;ldx zp_temp_1
-    ; Falls through to next routine
-    ;jsr convert_screen_space_to_screen_memory
-	;rts
+; tile_to_screen_space_xy:
+; 	;lda $2002 ; reset latch
+; 	tya
+; 	lsr
+; 	lsr
+; 	lsr
+; 	;ora #$20 ; high bits of Y + $20
+;     pha ; Store High Byte on stack
+; 	;sta zp_temp_1
+; 	tya
+; 	asl
+; 	asl
+; 	asl
+; 	asl
+; 	asl
+; 	sta zp_temp_3
+; 	txa
+; 	ora zp_temp_3
+;     tay ; Store low byte into Y
+;     pla ; Pull High Byte from stack
+;     tax
+;     ;ldx zp_temp_1
+;     ; Falls through to next routine
+;     ;jsr convert_screen_space_to_screen_memory
+; 	;rts
 
 ; Screen Space starts at 0. This moves the pointers so they start at the memory location for the screen in CPU memory
 convert_screen_space_to_screen_memory:
@@ -1055,13 +1090,14 @@ convert_screen_space_to_screen_memory_stack:
     rts
 
 screen_space_to_ppu_space:
-    pha ; store A on stack
-    lda temp_y
-    clc
-    ; Adjust Y down to account for the header
-    adc #$02
-    sta temp_y
-    pla ; Get A from stack
+    inc temp_y
+    ; pha ; store A on stack
+    ; lda temp_y
+    ; clc
+    ; ; Adjust Y down to account for the header
+    ; adc #$02
+    ; sta temp_y
+    ; pla ; Get A from stack
 rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
