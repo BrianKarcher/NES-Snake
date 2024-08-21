@@ -2,8 +2,9 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count
+.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
+.import xy_meta_tile_offset
 .export draw_board, place_food, place_header_food, print_level_end_message
 
 ; 2x2 tiles. indexes into the tile table below
@@ -438,26 +439,33 @@ place_food:
 ; x, y in their registers
 find_blank_tile:
     jsr get_random_axis
-    pha ; Store X onto stack
+    ;pha ; Store X onto stack
     ;sta zp_temp_1 ; store x
     ;pha ; store x in stack
-    tax
+    ;tax
+    sta temp_x
     find_y:
     jsr get_random_axis
-    cmp #$1c ; 28
+    cmp #$e ; 14
     bpl find_y ; Find another y if > 30
     ; cmp #$00 ; Title area? Find a new y
     ; beq find_y
     ; cmp #$01 ; Title area
     ; beq find_y
     ;sta zp_temp_2 ; store y
-    pha ; Store y onto stack
-    tay
-    jsr tile_to_screen_space_xy
-    stx current_high_2
-    sty current_low_2
+    ;pha ; Store y onto stack
+    sta temp_y
+    ;tay
+    ;jsr tile_to_screen_space_xy
+    jsr xy_meta_tile_offset
+    lda #<screen
+    sta current_low_2
+    lda #>screen
+    sta current_high_2
+    ;stx current_high_2
+    ;sty current_low_2
     ; Check if the tile is free
-    ldy #$0
+    ldy temp_offset
     lda (current_low_2), Y
     ; TODO Use tile types instead of tile id's
     cmp #$58
@@ -466,20 +474,19 @@ find_blank_tile:
     beq fail
     cmp #$68 ; Cannot place on top of snake
     beq fail
-    pla ; pull Y from stack
-    tay
+    ;pla ; pull Y from stack
+    ;tay
     ;ldx zp_temp_1 ; transfer x to x register
     ;tax
-    pla ; pull X from stack
-    tax
+    ;pla ; pull X from stack
+    ;tax
     ;ldy zp_temp_2 ; transfer y to y register
     ;tay
     rts
     fail:
-    pla ; Pull X from stack
-    pla ; Pull Y from stack
+    ;pla ; Pull X from stack
+    ;pla ; Pull Y from stack
     jmp find_blank_tile
-
 
 ; Get a random tile on an axis (x or y)
 ; IN
@@ -487,13 +494,15 @@ find_blank_tile:
 ; OUT
 ; A = random number
 get_random_axis:
+    inc random_index
     ldy random_index
-    iny ; There are 256 random values, random_index can just loop in circles via overflow
-    sty random_index
+    ;iny ; There are 256 random values, random_index can just loop in circles via overflow
+    ;sty random_index
     lda random, Y
     lsr
     lsr
-    lsr ; Shift right three times to convert 0-256 to 0-32
+    lsr
+    lsr ; Shift right four times to convert 0-256 to 0-16
 rts
 
 ; The message will display on the next nmi update.

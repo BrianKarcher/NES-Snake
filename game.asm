@@ -4,7 +4,7 @@
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -87,7 +87,6 @@ nmt_update: .res 256 ; nametable update entry buffer for PPU update
 screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
                         ; We sacrifice memory for speed, it takes a while to check collisions on a 100-size snake if not in screen mirror memory.
                      ; The snake is mutable background and collides with itself.
-
 
 .segment "STARTUP" ; avoids warning
 dirs:
