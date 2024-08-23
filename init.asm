@@ -16,9 +16,11 @@
     palette_loop:
         lda #$0f ; black
         sta PPU_DATA
-        lda #$20 ; white
+        lda #$1c ; blue
         sta PPU_DATA
+        lda #$2b ; green
         sta PPU_DATA
+        lda #$39 ; yellow
         sta PPU_DATA
         dex
         bne palette_loop

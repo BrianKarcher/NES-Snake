@@ -150,6 +150,7 @@ load_board_to_nt:
     ;jsr ppu_load
     jsr header_to_ppu_load
     jsr board_to_ppu_load
+    jsr attribute_table_load
 
     lda #<screen
     sta current_low_2
@@ -159,6 +160,25 @@ load_board_to_nt:
     ldy #$f0
     jsr copy_current_low_to_2
 rts
+
+; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
+.proc attribute_table_load
+    lda #$23
+    sta PPU_ADDRESS
+    lda #$c0
+    sta PPU_ADDRESS
+    ; We do the first 60 bytes here
+    ldy #$0 ; metatile offset
+    forx:
+        lda #$0
+        ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
+        
+        cpy #$3c
+        bne forx
+
+    ; We do the last 8 bytes here
+    rts
+.endproc
 
 ; tile_map_to_screen:
 ;     ldx #$0
