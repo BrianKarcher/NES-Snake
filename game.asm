@@ -2,7 +2,7 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
-.export zp_temp_1, zp_temp_2, zp_temp_3, screen, current_low, current_high, end_low, end_high, current_low_2, current_high_2
+.export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset
 ; .segment "HEADER"
@@ -89,6 +89,8 @@ screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite lar
                      ; The snake is mutable background and collides with itself.
 
 .segment "STARTUP" ; avoids warning
+screen_rows: ; screen offset to start of each row
+    .byte $0, $10, $20, $30, $40, $50, $60, $70, $80, $90, $a0, $b0, $c0, $d0, $e0
 dirs:
     .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
 o_dirs: ; opposite directions - to test if player pressed in opposite of current direction
@@ -939,6 +941,7 @@ ppu_address_tile:
 	sta $2006 ; low bits of Y + X
 	rts
 
+; Works ONLY on Metatiles (2x2 tiles)
 .proc xy_meta_tile_offset
     ; Perform calculation y * width(16) + x
     lda temp_y

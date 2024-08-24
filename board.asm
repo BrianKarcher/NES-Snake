@@ -4,7 +4,7 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
-.import xy_meta_tile_offset
+.import xy_meta_tile_offset, screen_rows
 .export draw_board, place_food, place_header_food, print_level_end_message
 
 ; 2x2 tiles. indexes into the tile table below
@@ -163,20 +163,147 @@ rts
 
 ; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
 .proc attribute_table_load
+    jsr clear_attribute_table
+
+    lda #$23
+    sta PPU_ADDRESS
+    lda #$c0
+    sta PPU_ADDRESS 
+
+    ldy #$0
+    ; Loop through the attribute table, which is 8x8
+    fory:
+        ldx #$0
+        forx:
+            lda #$0
+            jsr generate_attribute_byte
+            sta PPU_DATA
+            inx
+            cpx #$8
+        bne forx
+        iny
+        cpy #$8
+    bne fory
+
+    ; We do the last 8 bytes here
+    rts
+.endproc
+
+; .proc attribute_table_load
+;     jsr clear_attribute_table
+
+;     lda #$23
+;     sta PPU_ADDRESS
+;     lda #$c0
+;     sta PPU_ADDRESS 
+;     ; We do the first 60 bytes here
+;     lda #$0
+;     sta temp_y
+;     fory:
+;         ldy temp_y
+;         lda screen_rows, y
+;         sta zp_temp_1
+;         iny
+;         sta screen_rows, y
+;         sta zp_temp_2
+;         ldx screen_rows, y
+;         ldy #$0 ; metatile offset (this is the X-coord!)
+;         forx:
+;             lda #$0
+;             ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
+
+;             cpy #$3c
+;             bne forx
+
+;     ; We do the last 8 bytes here
+;     rts
+; .endproc
+
+; IN x, y
+; OUT a (the byte)
+; x and y are not modified
+; One attribute byte is made up of four metatiles. Each metatile color is two bits.
+; value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
+; TODO: Optimize this
+.proc generate_attribute_byte
+    txa
+    pha ; store x
+    tya
+    pha ; store y
+
+    txa; double x and y to find screen coords
+    asl
+    sta temp_x
+    tya
+    asl
+    sta temp_y
+    jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
+    
+    ldy temp_offset
+    ldx screen, y ; top-left
+    lda color, x
+    sta zp_temp_2
+
+    iny
+    ldx screen, y ; top-right
+    lda color, x
+    asl
+    asl
+    ora zp_temp_2
+    sta zp_temp_2
+
+    ; The last row of the attribute table does not have bottom metatiles. https://www.nesdev.org/wiki/PPU_attribute_tables
+    cpy #$e ; 14
+    beq exit
+
+    tya
+    clc
+    adc #$f ; 15, gets us to the bottom-left metatile
+    ldx screen, y ; bottom-left
+    lda color, x
+    asl
+    asl
+    asl
+    asl
+    ora zp_temp_2
+    sta zp_temp_2
+
+    iny ; bottom-right
+    ldx screen, y ; bottom-left
+    lda color, x
+    asl
+    asl
+    asl
+    asl
+    asl
+    asl
+    ora zp_temp_2
+    sta zp_temp_2
+
+    exit:
+    pla ; restore y
+    tay
+    pla ; restore x
+    tax
+    lda zp_temp_2
+
+    rts
+.endproc
+
+.proc clear_attribute_table
     lda #$23
     sta PPU_ADDRESS
     lda #$c0
     sta PPU_ADDRESS
-    ; We do the first 60 bytes here
-    ldy #$0 ; metatile offset
-    forx:
-        lda #$0
-        ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
-        
-        cpy #$3c
-        bne forx
 
-    ; We do the last 8 bytes here
+    ; clear the attribute table
+    ldy #$0
+    lda #$0
+    fory:
+        sta PPU_DATA
+        iny
+        cpy #$40 ; 64
+        bne fory
     rts
 .endproc
 
