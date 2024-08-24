@@ -290,7 +290,7 @@ random:
     lda snakes_lo, x
     sta current_low
 
-    lda #$68 ; h
+    lda #$a ; h
     sta temp_a
     ldy #$0
     sta (current_low), y
@@ -440,7 +440,7 @@ random:
 
 ; Store the head in screen space memory
 .proc store_head
-    lda #$68 ; h
+    lda #$a ; h
     ldy temp_offset
     sta (current_low_2), y
     rts
@@ -462,7 +462,7 @@ random:
     ; Increment to new head
     iny
     ; Store 'h' at the new head since we don't know the direction to its next head yet
-    lda #$68 ; h
+    lda #$a ; h
     sta (current_low), y
     ;sta SNAKE, y
     sty head_index, x
@@ -626,7 +626,7 @@ random:
     ; Check tile ran into
     ldy temp_offset
     lda (current_low_2), y
-    cmp #$68
+    cmp #$a
     bne no_self
         jmp inf_loop
     no_self:
@@ -693,7 +693,7 @@ rts
 ;     ldy #$00
 ;     ; Check tile ran into
 ;     lda (current_low_2), y
-;     cmp #$68
+;     cmp #$a
 ;     bne no_self
 ;         jmp inf_loop
 ;     no_self:

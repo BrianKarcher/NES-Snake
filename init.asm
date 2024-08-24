@@ -1,10 +1,12 @@
 .include "constants.asm"
 
-.export init, load_palette
+.export load_palette
 
-.proc init
-
-.endproc
+forest_palette_0:
+    .byte $2b, $1c, $0f, $39 ; snake
+    .byte $2b, $3d, $2d, $28
+    .byte $2b, $3d, $2d, $28
+    .byte $2b, $3d, $2d, $28
 
 .proc load_palette
     lda #$3f
@@ -12,17 +14,12 @@
     lda #$00
     sta PPU_ADDRESS
     ; load 8 palettes (4 bg, 4 sprite)
-    ldx #$8
+    ldx #$0
     palette_loop:
-        lda #$0f ; black
+        lda forest_palette_0, x
         sta PPU_DATA
-        lda #$1c ; blue
-        sta PPU_DATA
-        lda #$2b ; green
-        sta PPU_DATA
-        lda #$39 ; yellow
-        sta PPU_DATA
-        dex
+        inx
+        cpx #$10
         bne palette_loop
     rts
 .endproc

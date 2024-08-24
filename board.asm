@@ -100,19 +100,19 @@ level_complete_message:
 ; 1 = wall
 ;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 top_left:
-.byte 0, 1, 1, 1, 0, 1, 1, 0, 0, 1
+.byte 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0
 
 top_right:
-.byte 0, 1, 1, 1, 1, 0, 1, 1, 0, 0
+.byte 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0
 
 bottom_left:
-.byte 0, 1, 1, 0, 1, 1, 0, 0, 1, 1
+.byte 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0
 
 bottom_right:
-.byte 0, 1, 0, 1, 1, 1, 0, 1, 1, 0
+.byte 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0
 
 color:
-.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
 
 food_header_offset:
     .byte 6, 20
@@ -150,7 +150,6 @@ load_board_to_nt:
     ;jsr ppu_load
     jsr header_to_ppu_load
     jsr board_to_ppu_load
-    jsr attribute_table_load
 
     lda #<screen
     sta current_low_2
@@ -159,18 +158,19 @@ load_board_to_nt:
     ;jsr ppu_to_screen_space
     ldy #$f0
     jsr copy_current_low_to_2
+    jsr attribute_table_load
 rts
 
 ; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
 .proc attribute_table_load
-    jsr clear_attribute_table
+    ;jsr clear_attribute_table
 
     lda #$23
     sta PPU_ADDRESS
-    lda #$c0
-    sta PPU_ADDRESS 
+    lda #$c8 ; skipping header row
+    sta PPU_ADDRESS
 
-    ldy #$0
+    ldy #$1 ; skip header for now
     ; Loop through the attribute table, which is 8x8
     fory:
         ldx #$0
@@ -182,7 +182,7 @@ rts
             cpx #$8
         bne forx
         iny
-        cpy #$8
+        cpy #$6
     bne fory
 
     ; We do the last 8 bytes here
@@ -225,6 +225,7 @@ rts
 ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
 ; value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
 ; TODO: Optimize this
+; One optimization I can do is to start at the bottom-right. This would require less bit-shifts as the bottom-right gradually gets shifted left.
 .proc generate_attribute_byte
     txa
     pha ; store x
@@ -259,6 +260,7 @@ rts
     tya
     clc
     adc #$f ; 15, gets us to the bottom-left metatile
+    tay
     ldx screen, y ; bottom-left
     lda color, x
     asl
@@ -619,7 +621,7 @@ find_blank_tile:
     beq fail
     cmp #$69
     beq fail
-    cmp #$68 ; Cannot place on top of snake
+    cmp #$a ; Cannot place on top of snake
     beq fail
     ;pla ; pull Y from stack
     ;tay
