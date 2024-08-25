@@ -30,3 +30,4 @@ MMC1_DATA    = $8001  ; MMC1 Data Register
 ; Define bankswitching values for MMC1
 BANK_SWITCH_LOW   = $80  ; Low 8KB PRG-ROM bank
 BANK_SWITCH_HIGH  = $C0  ; High 8KB PRG-ROM bank
+HEADER_PALETTE    = $01

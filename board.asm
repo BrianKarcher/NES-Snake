@@ -163,14 +163,21 @@ rts
 
 ; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
 .proc attribute_table_load
-    ;jsr clear_attribute_table
-
     lda #$23
     sta PPU_ADDRESS
-    lda #$c8 ; skipping header row
+    lda #$c0
     sta PPU_ADDRESS
 
-    ldy #$1 ; skip header for now
+    ldx #$0 ; Do header, which includes header and the top row of the screen
+    ldy #$0
+    forx_header:
+        jsr generate_attribute_byte_header
+        sta PPU_DATA
+        inx
+        cpx #$8
+    bne forx_header
+
+    ldy #$1
     ; Loop through the attribute table, which is 8x8
     fory:
         ldx #$0
@@ -272,6 +279,62 @@ rts
 
     iny ; bottom-right
     ldx screen, y ; bottom-left
+    lda color, x
+    asl
+    asl
+    asl
+    asl
+    asl
+    asl
+    ora zp_temp_2
+    sta zp_temp_2
+
+    exit:
+    pla ; restore y
+    tay
+    pla ; restore x
+    tax
+    lda zp_temp_2
+
+    rts
+.endproc
+
+; Top two tile rows are the header, next two rows are in-game
+.proc generate_attribute_byte_header
+    txa
+    pha ; store x
+    tya
+    pha ; store y
+
+    txa; double x and y to find screen coords
+    asl
+    sta temp_x
+    lda #$0
+    sta temp_y
+    jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
+
+    lda #HEADER_PALETTE ; top-left
+    sta zp_temp_2
+
+    lda #HEADER_PALETTE
+    asl
+    asl
+    ora zp_temp_2 ; top-right
+    sta zp_temp_2
+
+    ldy temp_offset
+
+    ldx screen, y ; top-left
+    lda color, x
+    asl
+    asl
+    asl
+    asl
+    ora zp_temp_2
+    sta zp_temp_2
+
+    iny
+    ldx screen, y ; top-right of screen goes into bottom-right of attribute byte
     lda color, x
     asl
     asl
