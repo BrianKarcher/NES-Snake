@@ -171,7 +171,7 @@ reset:
     bit $2002
     bpl @vblankwait2
 
-;jsr load_palette
+jsr load_palette
 
 lda #$c0
 sta $0200

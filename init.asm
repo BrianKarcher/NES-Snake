@@ -4,9 +4,9 @@
 
 forest_palette_0:
     .byte $0f, $1c, $0f, $39 ; snake
-    .byte $2b, $0f, $0f, $20 ; header
-    .byte $2b, $3d, $2d, $28
-    .byte $2b, $3d, $2d, $28
+    .byte $0f, $0f, $0f, $30 ; header
+    .byte $0f, $3d, $2d, $28 ; grass
+    .byte $0f, $3d, $2d, $28
 
 .proc load_palette
     lda #$3f
