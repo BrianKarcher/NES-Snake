@@ -5,7 +5,7 @@
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows
-.export draw_board, place_food, place_header_food, print_level_end_message
+.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -112,7 +112,7 @@ bottom_right:
 .byte 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0
 
 color:
-.byte 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+.byte 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 food_header_offset:
     .byte 6, 20
@@ -132,6 +132,11 @@ draw_board:
     sta START_X, x
     lda startys2, y
     sta START_Y, x
+    ; reset scroll location to top-left of screen
+    lda PPU_SCROLL
+    lda #$00
+    sta PPU_SCROLL
+    sta PPU_SCROLL
 rts
 
 load_board_to_nt:
@@ -158,7 +163,7 @@ load_board_to_nt:
     ;jsr ppu_to_screen_space
     ldy #$f0
     jsr copy_current_low_to_2
-    jsr attribute_table_load
+    ;jsr attribute_table_load
 rts
 
 ; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
@@ -226,8 +231,8 @@ rts
 ;     rts
 ; .endproc
 
-; IN x, y
-; OUT a (the byte)
+; IN x, y (attribute coords)
+; OUT a (the byte), also stored in zp_temp_2
 ; x and y are not modified
 ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
 ; value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
@@ -537,6 +542,10 @@ board_to_ppu_load:
         lda zp_temp_3 ; row count
         cmp #$e ; 14
     bne @fory
+    ; reset scroll location to top-left of screen
+    lda #$00
+    sta PPU_SCROLL
+    sta PPU_SCROLL
 rts
 
 ; Convert tiles from the ppu to screen space

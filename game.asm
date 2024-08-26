@@ -1,7 +1,7 @@
 ; main game Loop
 .include "constants.asm"
 
-.import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message
+.import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset
@@ -171,7 +171,7 @@ reset:
     bit $2002
     bpl @vblankwait2
 
-jsr load_palette
+;jsr load_palette
 
 lda #$c0
 sta $0200
@@ -192,6 +192,11 @@ sta OAM_ADDRESS           ; Store high byte into OAMADDR
 jsr init_game
 jsr init_level
 
+lda PPU_SCROLL
+lda #$00
+sta PPU_SCROLL
+sta PPU_SCROLL
+
 ; Trigger OAMDMA transfer
 lda #$80
 sta $2000  ; enable NMI
@@ -200,14 +205,19 @@ sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
 
+lda PPU_SCROLL
+lda #$00
+sta PPU_SCROLL
+sta PPU_SCROLL
+
 .proc game
     @loop:
-        inc random_index
-        ldx #$00
-        jsr readjoy2_safe
-        jsr process_input
-		jsr process_snake
-		jsr ppu_update
+        ; inc random_index
+        ; ldx #$00
+        ; jsr readjoy2_safe
+        ; jsr process_input
+		; jsr process_snake
+		; jsr ppu_update
 	jmp @loop
 .endproc
 
@@ -227,8 +237,6 @@ sta $4010  ; enable DMC IRQs
     sta level_complete
     jsr draw_board
     jsr place_food
-    ;jsr place_food
-    ;jsr place_food
     jsr init_level_variables
     jsr place_header_food
     jsr init_place_snake
@@ -434,7 +442,7 @@ random:
     jsr store_head
     jsr move_head
 
-    jsr process_tail
+    ;jsr process_tail
 	rts
 .endproc
 
@@ -756,6 +764,7 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
 	pha
 	tya
 	pha
+
 	; prevent NMI re-entry
 	lda nmi_lock
 	beq :+
@@ -828,16 +837,46 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
 	bcs @scroll
 	@nmt_update_loop:
 		lda nmt_update, X
+        sta current_high
 		sta $2006
 		inx
 		lda nmt_update, X
+        sta current_low
 		sta $2006
 		inx
 		lda nmt_update, X
 		sta $2007
 		inx
+
+        txa
+        pha ; store x
+        jsr ppu_getxy_from_address ; temp_x=0-32, temp_y=0-30
+
+        ; convert from nmi-space to attribute space (divide x and y by 4)
+        jsr coord_quarter
+        jsr generate_attribute_byte ; byte gets stored in zp_temp_2
+        
+        lda #$23
+        sta PPU_ADDRESS
+        txa
+        sta temp_x
+        tya
+        asl ; find the low byte memory space, y*8 + x + c0
+        asl
+        asl
+        clc
+        adc temp_x
+        clc
+        adc #$c0
+        sta PPU_ADDRESS
+        lda zp_temp_2
+        sta PPU_DATA
+
+        pla
+        tax ; restore x
 		cpx nmt_update_len
 		bcc @nmt_update_loop
+
 	lda #0
 	sta nmt_update_len
     
@@ -1170,6 +1209,75 @@ ppu_update_byte:
 	iny
 	sty nmt_update_len
 	rts
+
+; get x by just getting the lower 5 bits (AND x11111)
+; Every bit above the 5th one is Y. This is because the width is 32. Matters are complicated slightly
+; because addresses are 16-bit, but our data bus is 8-bit.
+; We solve this by getting ONLY the first two bits of the high byte (AND #3) - this is nametable agnostic
+; Then shift the high byte to the LEFT 3 times
+; Shift the low byte to the right 5 times
+; then AND both of them together.
+; IN current_low, current_high
+; OUT x, y
+ppu_getxy_from_address:
+    ; get X
+    lda current_low
+    and #$1f ; Mask the lower 5 bits (1f is 0x11111)
+    ;sta temp_x
+    tax
+    lda current_high
+    asl
+    asl
+    asl ; shift 3 times left
+    sta current_high
+    lda current_low
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr ; shift 5 to the right
+    ora current_high ; combine low and high to get Y
+    ;sta temp_y
+    tay
+rts
+
+; Converts an x and y to a coord system with half the width (Tile to Metatile, or Metatile to Attribute Table)
+; IN (x,y)
+; OUT (x,y), modified
+coord_half:
+    txa
+    ;lda temp_x
+    ;asl ; Multiply by 2
+    lsr ; Divide by 2
+    tax
+    ;sta temp_x
+    ;lda temp_y
+    tya
+    ;asl
+    lsr ; Divide by 2
+    tay
+    ;sta temp_y
+    rts
+
+; Converts an x and y to a coord system with one quarter the width (ex: Tile to Attribute Table)
+; IN (x,y)
+; OUT (x,y), modified
+coord_quarter:
+    txa
+    ;lda temp_x
+    ;asl ; Multiply by 2
+    lsr
+    lsr ; Divide by 4
+    tax
+    ;sta temp_x
+    ;lda temp_y
+    tya
+    ;asl
+    lsr
+    lsr ; Divide by 4
+    tay
+    ;sta temp_y
+    rts
 
 ; At the same time that we strobe bit 0, we initialize the ring counter
 ; so we're hitting two birds with one stone here
