@@ -1,7 +1,7 @@
 ; main game Loop
 .include "constants.asm"
 
-.import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
+.import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset
@@ -192,11 +192,6 @@ sta OAM_ADDRESS           ; Store high byte into OAMADDR
 jsr init_game
 jsr init_level
 
-lda PPU_SCROLL
-lda #$00
-sta PPU_SCROLL
-sta PPU_SCROLL
-
 ; Trigger OAMDMA transfer
 lda #$80
 sta $2000  ; enable NMI
@@ -205,19 +200,14 @@ sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
 
-lda PPU_SCROLL
-lda #$00
-sta PPU_SCROLL
-sta PPU_SCROLL
-
 .proc game
     @loop:
-        ; inc random_index
-        ; ldx #$00
-        ; jsr readjoy2_safe
-        ; jsr process_input
-		; jsr process_snake
-		; jsr ppu_update
+        inc random_index
+        ldx #$00
+        jsr readjoy2_safe
+        jsr process_input
+		jsr process_snake
+		jsr ppu_update
 	jmp @loop
 .endproc
 
@@ -236,9 +226,9 @@ sta PPU_SCROLL
     lda #$00
     sta level_complete
     jsr draw_board
-    jsr place_food
+    ;jsr place_food
     jsr init_level_variables
-    jsr place_header_food
+    ;jsr place_header_food
     jsr init_place_snake
 rts
 .endproc
@@ -856,6 +846,7 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
         jsr coord_quarter
         jsr generate_attribute_byte ; byte gets stored in zp_temp_2
         
+        @end_ab:
         lda #$23
         sta PPU_ADDRESS
         txa
@@ -882,6 +873,7 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
     
     @scroll:
     ; reset scroll location to top-left of screen
+    lda PPU_SCROLL
     lda #$00
     sta PPU_SCROLL
     sta PPU_SCROLL

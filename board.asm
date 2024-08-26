@@ -5,7 +5,7 @@
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows
-.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
+.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -132,11 +132,6 @@ draw_board:
     sta START_X, x
     lda startys2, y
     sta START_Y, x
-    ; reset scroll location to top-left of screen
-    lda PPU_SCROLL
-    lda #$00
-    sta PPU_SCROLL
-    sta PPU_SCROLL
 rts
 
 load_board_to_nt:
@@ -163,7 +158,7 @@ load_board_to_nt:
     ;jsr ppu_to_screen_space
     ldy #$f0
     jsr copy_current_low_to_2
-    ;jsr attribute_table_load
+    jsr attribute_table_load
 rts
 
 ; Refer to https://www.nesdev.org/wiki/PPU_attribute_tables to find out how attributes are stored.
@@ -173,16 +168,16 @@ rts
     lda #$c0
     sta PPU_ADDRESS
 
-    ldx #$0 ; Do header, which includes header and the top row of the screen
-    ldy #$0
-    forx_header:
-        jsr generate_attribute_byte_header
-        sta PPU_DATA
-        inx
-        cpx #$8
-    bne forx_header
+    ; ldx #$0 ; Do header, which includes header and the top row of the screen
+    ; ldy #$0
+    ; forx_header:
+    ;     jsr generate_attribute_byte_header
+    ;     sta PPU_DATA
+    ;     inx
+    ;     cpx #$8
+    ; bne forx_header
 
-    ldy #$1
+    ldy #$0
     ; Loop through the attribute table, which is 8x8
     fory:
         ldx #$0
@@ -194,7 +189,7 @@ rts
             cpx #$8
         bne forx
         iny
-        cpy #$6
+        cpy #$8
     bne fory
 
     ; We do the last 8 bytes here
@@ -231,13 +226,6 @@ rts
 ;     rts
 ; .endproc
 
-; IN x, y (attribute coords)
-; OUT a (the byte), also stored in zp_temp_2
-; x and y are not modified
-; One attribute byte is made up of four metatiles. Each metatile color is two bits.
-; value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
-; TODO: Optimize this
-; One optimization I can do is to start at the bottom-right. This would require less bit-shifts as the bottom-right gradually gets shifted left.
 .proc generate_attribute_byte
     txa
     pha ; store x
@@ -250,6 +238,30 @@ rts
     tya
     asl
     sta temp_y
+    cpy #$0 ; Are we on the header row?
+    bne @do_body
+        jsr generate_attribute_byte_header
+        jmp @end
+    @do_body:
+        jsr generate_attribute_byte_body
+    @end:
+    pla ; restore y
+    tay
+    pla ; restore x
+    tax
+    lda zp_temp_2
+rts
+.endproc
+
+; IN x, y (attribute coords)
+; OUT a (the byte), also stored in zp_temp_2
+; x and y are not modified
+; One attribute byte is made up of four metatiles. Each metatile color is two bits.
+; value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
+; TODO: Optimize this
+; One optimization I can do is to start at the bottom-right. This would require less bit-shifts as the bottom-right gradually gets shifted left.
+.proc generate_attribute_byte_body
+    dec temp_y ; adjust for header row
     jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
     
     ldy temp_offset
@@ -295,25 +307,11 @@ rts
     sta zp_temp_2
 
     exit:
-    pla ; restore y
-    tay
-    pla ; restore x
-    tax
-    lda zp_temp_2
-
     rts
 .endproc
 
 ; Top two tile rows are the header, next two rows are in-game
 .proc generate_attribute_byte_header
-    txa
-    pha ; store x
-    tya
-    pha ; store y
-
-    txa; double x and y to find screen coords
-    asl
-    sta temp_x
     lda #$0
     sta temp_y
     jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
@@ -351,31 +349,25 @@ rts
     sta zp_temp_2
 
     exit:
-    pla ; restore y
-    tay
-    pla ; restore x
-    tax
-    lda zp_temp_2
-
     rts
 .endproc
 
-.proc clear_attribute_table
-    lda #$23
-    sta PPU_ADDRESS
-    lda #$c0
-    sta PPU_ADDRESS
+; .proc clear_attribute_table
+;     lda #$23
+;     sta PPU_ADDRESS
+;     lda #$c0
+;     sta PPU_ADDRESS
 
-    ; clear the attribute table
-    ldy #$0
-    lda #$0
-    fory:
-        sta PPU_DATA
-        iny
-        cpy #$40 ; 64
-        bne fory
-    rts
-.endproc
+;     ; clear the attribute table
+;     ldy #$0
+;     lda #$0
+;     fory:
+;         sta PPU_DATA
+;         iny
+;         cpy #$40 ; 64
+;         bne fory
+;     rts
+; .endproc
 
 ; tile_map_to_screen:
 ;     ldx #$0
