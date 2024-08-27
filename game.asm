@@ -173,14 +173,14 @@ reset:
 
 jsr load_palette
 
-lda #$c0
-sta $0200
-lda #$43
-sta $0201
-lda #%00000110
-sta $0202
-lda #$05
-sta $0203
+; lda #$c0
+; sta $0200
+; lda #$43
+; sta $0201
+; lda #%00000110
+; sta $0202
+; lda #$05
+; sta $0203
 
 ; Set up OAMADDR
 lda #<OAM   ; Low byte of sprite_data address
@@ -1314,4 +1314,4 @@ reread:
 	.addr nmi, reset, 0
 
 .segment "CHARS"
-    .incbin "sprites2.chr"
+    .incbin "sprites.chr"
