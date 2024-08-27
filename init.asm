@@ -3,7 +3,7 @@
 .export load_palette
 
 forest_palette_0:
-    .byte $0f, $1c, $0f, $30 ; snake
+    .byte $0f, $1c, $0c, $30 ; snake
     .byte $0f, $0f, $0f, $30 ; header
     .byte $0f, $3d, $2d, $28 ; grass
     .byte $0f, $3d, $2d, $28

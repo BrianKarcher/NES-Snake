@@ -226,6 +226,7 @@ rts
 ;     rts
 ; .endproc
 
+; TODO: THIS IS TOO SLOW, FIX NOW!
 .proc generate_attribute_byte
     txa
     pha ; store x

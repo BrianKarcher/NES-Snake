@@ -104,6 +104,9 @@ snakes_lo:
 head_shape:
     .byte $06, $07, $16, $17
 
+body_right_shape:
+    .byte $05, $05, $15, $15
+
 blank_shape:
     .byte $00, $00, $00, $00
 
@@ -296,8 +299,10 @@ random:
     lda #$05
     sta temp_a
     lda new_x, x
+    sta head_x, x
     sta temp_x
     lda new_y, x
+    sta head_y, x
     sta temp_y
     lda #<head_shape
     sta current_low
@@ -465,6 +470,19 @@ random:
     ;sta SNAKE, y
     sty head_index, x
 
+    ; Draw over old head with body
+    lda head_x, x
+    sta temp_x
+    lda head_y, x
+    sta temp_y
+    lda #<body_right_shape
+    sta current_low
+    lda #>body_right_shape
+    sta current_high
+    jsr screen_space_to_ppu_space
+    ;jsr ppu_update_tile_temp
+    jsr place_shape
+
     ;txa
     ;pha ; store x (snake index) on stack
     ; Move head, place on nmi queue
@@ -472,12 +490,16 @@ random:
     ;stx head_x
     ;ldy new_y
     ;sty head_y
+    ; Record new head
     lda new_x, x
+    sta head_x, x
     sta temp_x
     lda new_y, x
+    sta head_y, x
     sta temp_y
     ; lda #$05 ; head
     ; sta temp_a
+    ; Draw new head
     lda #<head_shape
     sta current_low
     lda #>head_shape
@@ -838,6 +860,50 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
 		sta $2007
 		inx
 
+        ; txa
+        ; pha ; store x
+        ; jsr ppu_getxy_from_address ; temp_x=0-32, temp_y=0-30
+
+        ; ; convert from nmi-space to attribute space (divide x and y by 4)
+        ; jsr coord_quarter
+        ; jsr generate_attribute_byte ; byte gets stored in zp_temp_2
+        
+        ; @end_ab:
+        ; lda #$23
+        ; sta PPU_ADDRESS
+        ; txa
+        ; sta temp_x
+        ; tya
+        ; asl ; find the low byte memory space, y*8 + x + c0
+        ; asl
+        ; asl
+        ; clc
+        ; adc temp_x
+        ; clc
+        ; adc #$c0
+        ; sta PPU_ADDRESS
+        ; lda zp_temp_2
+        ; sta PPU_DATA
+
+        ; pla
+        ; tax ; restore x
+		cpx nmt_update_len
+		bcc @nmt_update_loop
+    
+    ldx #0
+	@nmt_update_loop2:
+		lda nmt_update, X
+        sta current_high
+		;sta $2006
+		inx
+		lda nmt_update, X
+        sta current_low
+		;sta $2006
+		inx
+		lda nmt_update, X
+		;sta $2007
+		inx
+
         txa
         pha ; store x
         jsr ppu_getxy_from_address ; temp_x=0-32, temp_y=0-30
@@ -866,7 +932,7 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
         pla
         tax ; restore x
 		cpx nmt_update_len
-		bcc @nmt_update_loop
+		bcc @nmt_update_loop2
 
 	lda #0
 	sta nmt_update_len
