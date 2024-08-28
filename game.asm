@@ -81,6 +81,7 @@ player_count:   .res 1 ; 30
 current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
 temp_offset:    .res 1 ; 33
+prev_dir:       .res 2 ; 34, 35
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -113,13 +114,17 @@ head_left_shape:
     .byte $0a, $0b, $1a, $1b
 head_right_shape:
     .byte $06, $07, $16, $17
+; This 8-bit processor drives me NUTS with the high and low bytes.
 head_hi:
     .byte >head_up_shape, >head_down_shape, >head_left_shape, >head_right_shape
 head_lo:
     .byte <head_up_shape, <head_down_shape, <head_left_shape, <head_right_shape
 
-body_right_shape:
+body_hor_shape:
     .byte $05, $05, $15, $15
+
+body_vert_shape:
+    .byte $12, $13, $12, $13
 
 blank_shape:
     .byte $00, $00, $00, $00
@@ -264,6 +269,7 @@ random:
     init_snake:
         lda #BUTTON_RIGHT
         sta cur_dir, y
+        sta prev_dir, y
         sta next_dir, y
         lda #$07
         sta target_size, y
@@ -360,6 +366,8 @@ random:
 .endproc
 
 .proc move_snake_on_input
+    lda cur_dir, x
+    sta prev_dir, x
     lda next_dir, x
     sta cur_dir, x
 
@@ -490,10 +498,11 @@ random:
     sta temp_x
     lda head_y, x
     sta temp_y
-    lda #<body_right_shape
-    sta current_low
-    lda #>body_right_shape
-    sta current_high
+    jsr choose_body_metatile
+    ; lda #<body_hor_shape
+    ; sta current_low
+    ; lda #>body_hor_shape
+    ; sta current_high
     jsr screen_space_to_ppu_space
     ;jsr ppu_update_tile_temp
     jsr place_shape
@@ -526,6 +535,55 @@ random:
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
+.endproc
+
+.proc choose_body_metatile
+    lda prev_dir, X
+    cmp #UP
+    ; This is easy to do in other languages with a double array. We can hack that if needed, but for now I'm using a bunch of if statements
+    ; And honestly, the "double array" would be slower than what I am doing here. It would involve bit shifting, an ADC, and other stuff.
+    bne @not_up
+        lda cur_dir, X
+        cmp #DOWN
+        bne :+
+            lda #<body_vert_shape
+            sta current_low
+            lda #>body_vert_shape
+            sta current_high
+            jmp @exit
+        :
+        cmp #UP
+        bne @not_up
+            lda #<body_vert_shape
+            sta current_low
+            lda #>body_vert_shape
+            sta current_high
+            jmp @exit
+
+    @not_up:
+    cmp #RIGHT
+    bne @not_right
+        lda cur_dir, x
+        cmp #LEFT
+        bne :+
+            lda #<body_hor_shape
+            sta current_low
+            lda #>body_hor_shape
+            sta current_high
+            jmp @exit
+        :
+        cmp #RIGHT
+        bne @not_right
+            lda #<body_hor_shape
+            sta current_low
+            lda #>body_hor_shape
+            sta current_high
+            jmp @exit
+
+    @not_right:
+
+    @exit:
+rts
 .endproc
 
 ; IN
