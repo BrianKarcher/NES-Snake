@@ -15,6 +15,11 @@ START_Y         = $0502
 JOYPAD1         = $4016
 LEVEL_CHANGE    = $01
 
+UP = 0
+DOWN = 1
+LEFT = 2
+RIGHT = 3
+
 BUTTON_A      = 1 << 7
 BUTTON_B      = 1 << 6
 BUTTON_SELECT = 1 << 5

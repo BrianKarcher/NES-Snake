@@ -92,17 +92,31 @@ screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite lar
 screen_rows: ; screen offset to start of each row
     .byte $0, $10, $20, $30, $40, $50, $60, $70, $80, $90, $a0, $b0, $c0, $d0, $e0
 dirs:
+    .byte UP, DOWN, LEFT, RIGHT
+
+button_dirs:
     .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
+
 o_dirs: ; opposite directions - to test if player pressed in opposite of current direction
-    .byte BUTTON_DOWN, BUTTON_UP, BUTTON_RIGHT, BUTTON_LEFT
+    .byte DOWN, UP, RIGHT, LEFT
 
 snakes_hi:
     .byte >SNAKE, >SNAKE2
 snakes_lo:
     .byte <SNAKE, <SNAKE2
 
-head_shape:
+head_up_shape:
+    .byte $08, $09, $18, $19
+head_down_shape:
+    .byte $0c, $0d, $1c, $1d
+head_left_shape:
+    .byte $0a, $0b, $1a, $1b
+head_right_shape:
     .byte $06, $07, $16, $17
+head_hi:
+    .byte >head_up_shape, >head_down_shape, >head_left_shape, >head_right_shape
+head_lo:
+    .byte <head_up_shape, <head_down_shape, <head_left_shape, <head_right_shape
 
 body_right_shape:
     .byte $05, $05, $15, $15
@@ -304,9 +318,10 @@ random:
     lda new_y, x
     sta head_y, x
     sta temp_y
-    lda #<head_shape
+    ldy cur_dir, x
+    lda head_lo, y
     sta current_low
-    lda #>head_shape
+    lda head_hi, y
     sta current_high
     jsr screen_space_to_ppu_space
     ;jsr ppu_update_tile_temp
@@ -348,25 +363,25 @@ random:
     lda next_dir, x
     sta cur_dir, x
 
-    cmp #BUTTON_UP
+    cmp #UP
     bne @notUp
     dec new_y, x
     jmp @buttonEnd
 
     @notUp:
-    cmp #BUTTON_DOWN
+    cmp #DOWN
     bne @notDown
     inc new_y, x
     jmp @buttonEnd
 
     @notDown:
-    cmp #BUTTON_LEFT
+    cmp #LEFT
     bne @notLeft
     dec new_x, x
     jmp @buttonEnd
 
     @notLeft:
-    cmp #BUTTON_RIGHT
+    cmp #RIGHT
     bne @buttonEnd
     inc new_x, x
 
@@ -437,7 +452,7 @@ random:
     jsr store_head
     jsr move_head
 
-    ;jsr process_tail
+    jsr process_tail
 	rts
 .endproc
 
@@ -500,9 +515,10 @@ random:
     ; lda #$05 ; head
     ; sta temp_a
     ; Draw new head
-    lda #<head_shape
+    ldy cur_dir, x
+    lda head_lo, y
     sta current_low
-    lda #>head_shape
+    lda head_hi, y
     sta current_high
     jsr screen_space_to_ppu_space
     ;jsr ppu_update_tile_temp
@@ -640,17 +656,17 @@ random:
         ldy tail_index, x
         inc tail_index, x
         lda (current_low), Y
-        cmp #BUTTON_UP
+        cmp #UP
         bne @not_up
             dec tail_y, x
             jmp tail_done
         @not_up:
-        cmp #BUTTON_DOWN
+        cmp #DOWN
         bne @not_down
             inc tail_y, x
             jmp tail_done
         @not_down:
-        cmp #BUTTON_LEFT
+        cmp #LEFT
         bne @not_left
             dec tail_x, x
             jmp tail_done
@@ -788,7 +804,7 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
     ldy #$0
     @repeat:
         lda buttons, x
-        and dirs, Y
+        and button_dirs, Y
         beq @not_it
             lda cur_dir, x
             cmp o_dirs, Y
