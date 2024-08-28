@@ -512,7 +512,12 @@ random:
     rts
 .endproc
 
+; IN
+; temp_x, temp_y
+; current_low, current_high stores the shape address
 .proc place_shape ; places a 2x2 shape
+    txa ; store x
+    pha
     lda temp_x
     asl
     sta temp_x
@@ -545,14 +550,43 @@ random:
     inc temp_x
     jsr ppu_update_tile_temp
 
-    ; TODO We can skip this if we use different temp variables
-    ; lda temp_x
+    ; txa
+    ; pha ; store x
+    ldx temp_x
+    ldy temp_y
+    ; lda temp_x ; convert x and y back into metatile-coords
     ; lsr
-    ; sta temp_x
+    ; tax
     ; lda temp_y
     ; lsr
-    ; sta temp_y
+    ; tay
+    ; Create the attribute byte replacement
+    ; convert from nmi-space to attribute space (divide x and y by 2)
+    jsr coord_quarter
+    stx zp_temp_1
+    jsr generate_attribute_byte ; byte gets stored in zp_temp_2
     
+    lda #$23
+    tax ; high byte
+    ;sta PPU_ADDRESS
+    txa
+    ;sta temp_x
+    tya
+    asl ; find the low byte memory space, y*8 + x + c0
+    asl
+    asl
+    clc
+    ;sty temp_x
+    adc zp_temp_1
+    clc
+    adc #$c0
+    ;ora #$c0
+    tay
+    lda zp_temp_2
+    jsr ppu_update_byte
+    
+    pla ; restore x
+    tax
     rts
 .endproc
 
@@ -859,80 +893,9 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
 		lda nmt_update, X
 		sta $2007
 		inx
-
-        ; txa
-        ; pha ; store x
-        ; jsr ppu_getxy_from_address ; temp_x=0-32, temp_y=0-30
-
-        ; ; convert from nmi-space to attribute space (divide x and y by 4)
-        ; jsr coord_quarter
-        ; jsr generate_attribute_byte ; byte gets stored in zp_temp_2
         
-        ; @end_ab:
-        ; lda #$23
-        ; sta PPU_ADDRESS
-        ; txa
-        ; sta temp_x
-        ; tya
-        ; asl ; find the low byte memory space, y*8 + x + c0
-        ; asl
-        ; asl
-        ; clc
-        ; adc temp_x
-        ; clc
-        ; adc #$c0
-        ; sta PPU_ADDRESS
-        ; lda zp_temp_2
-        ; sta PPU_DATA
-
-        ; pla
-        ; tax ; restore x
 		cpx nmt_update_len
 		bcc @nmt_update_loop
-    
-    ldx #0
-	@nmt_update_loop2:
-		lda nmt_update, X
-        sta current_high
-		;sta $2006
-		inx
-		lda nmt_update, X
-        sta current_low
-		;sta $2006
-		inx
-		lda nmt_update, X
-		;sta $2007
-		inx
-
-        txa
-        pha ; store x
-        jsr ppu_getxy_from_address ; temp_x=0-32, temp_y=0-30
-
-        ; convert from nmi-space to attribute space (divide x and y by 4)
-        jsr coord_quarter
-        jsr generate_attribute_byte ; byte gets stored in zp_temp_2
-        
-        @end_ab:
-        lda #$23
-        sta PPU_ADDRESS
-        txa
-        sta temp_x
-        tya
-        asl ; find the low byte memory space, y*8 + x + c0
-        asl
-        asl
-        clc
-        adc temp_x
-        clc
-        adc #$c0
-        sta PPU_ADDRESS
-        lda zp_temp_2
-        sta PPU_DATA
-
-        pla
-        tax ; restore x
-		cpx nmt_update_len
-		bcc @nmt_update_loop2
 
 	lda #0
 	sta nmt_update_len
