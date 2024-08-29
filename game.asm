@@ -124,10 +124,26 @@ body_hor_shape:
     .byte $05, $05, $15, $15
 
 body_vert_shape:
-    .byte $12, $13, $12, $13
+    .byte $80, $81, $80, $81
 
 blank_shape:
     .byte $00, $00, $00, $00
+
+body_up_right_shape:
+    .byte $02, $05, $80, $00
+
+body_up_left_shape:
+    .byte $05, $03, $11, $81
+
+; same as down_left
+body_right_up_shape:
+    .byte $11, $81, $15, $13
+
+body_right_down_shape:
+    .byte $05, $03, $01, $81
+
+; body_down_left_shape:
+;     .byte 
 
 reset:
     sei        ; ignore IRQs
@@ -541,7 +557,7 @@ random:
     lda prev_dir, X
     cmp #UP
     ; This is easy to do in other languages with a double array. We can hack that if needed, but for now I'm using a bunch of if statements
-    ; And honestly, the "double array" would be slower than what I am doing here. It would involve bit shifting, an ADC, and other stuff.
+    ; And honestly, the "double array" would probably be slower than what I am doing here.
     bne @not_up
         lda cur_dir, X
         cmp #DOWN
@@ -553,10 +569,26 @@ random:
             jmp @exit
         :
         cmp #UP
-        bne @not_up
+        bne :+
             lda #<body_vert_shape
             sta current_low
             lda #>body_vert_shape
+            sta current_high
+            jmp @exit
+        :
+        cmp #RIGHT
+        bne :+
+            lda #<body_up_right_shape
+            sta current_low
+            lda #>body_up_right_shape
+            sta current_high
+            jmp @exit
+        :
+        cmp #LEFT
+        bne @not_up
+            lda #<body_up_left_shape
+            sta current_low
+            lda #>body_up_left_shape
             sta current_high
             jmp @exit
 
@@ -573,15 +605,43 @@ random:
             jmp @exit
         :
         cmp #RIGHT
-        bne @not_right
+        bne :+
             lda #<body_hor_shape
             sta current_low
             lda #>body_hor_shape
             sta current_high
             jmp @exit
+        :
+        cmp #UP
+        bne :+
+            lda #<body_right_up_shape
+            sta current_low
+            lda #>body_right_up_shape
+            sta current_high
+            jmp @exit
+        :
+        cmp #DOWN
+        bne @not_right
+            lda #<body_right_down_shape
+            sta current_low
+            lda #>body_right_down_shape
+            sta current_high
+            jmp @exit
 
     @not_right:
+    cmp #DOWN
+    bne @not_down
+        lda cur_dir, x
+        cmp #LEFT
+        bne :+
+            lda #<body_right_up_shape
+            sta current_low
+            lda #>body_right_up_shape
+            sta current_high
+            jmp @exit
+        :
 
+    @not_down:
     @exit:
 rts
 .endproc
