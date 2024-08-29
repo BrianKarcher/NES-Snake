@@ -729,6 +729,24 @@ rts
     lda size, x
     cmp target_size, x
     bne grow
+
+        ;ldx tail_x
+        ;ldy tail_y
+        lda tail_x, x
+        sta temp_x
+        lda tail_y, x
+        sta temp_y
+        jsr xy_meta_tile_offset
+        ;jsr tile_to_screen_space_temp
+        ;stx current_high_2
+        ;sty current_low_2
+        ldy temp_offset
+        ; Erase the tail
+        ; This is optional, more for debugging
+        lda #$00
+        sta (current_low_2), y
+
+
         ; Remove the current tail via nmi queue
         ;lda #$00 ; h
         ;ldx tail_x
@@ -747,21 +765,6 @@ rts
         ;jsr ppu_update_tile_temp
         jsr place_shape
 
-        ;ldx tail_x
-        ;ldy tail_y
-        lda tail_x, x
-        sta temp_x
-        lda tail_y, x
-        sta temp_y
-        jsr xy_meta_tile_offset
-        ;jsr tile_to_screen_space_temp
-        ;stx current_high_2
-        ;sty current_low_2
-        ldy temp_offset
-        ; Erase the tail
-        ; This is optional, more for debugging
-        lda #$00
-        sta (current_low_2), y
         ; We are at target size, move the tail along
 
         ; Move the tail
