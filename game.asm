@@ -82,6 +82,8 @@ current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
 temp_offset:    .res 1 ; 33
 prev_dir:       .res 2 ; 34, 35
+; screen_lo       .res 1 ; 36
+; screen_hi       .res 1 ; 37
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -492,10 +494,10 @@ random:
     ;jsr tile_to_screen_space_temp
     jsr xy_meta_tile_offset
 
-    lda #<screen
-    sta current_low_2
-    lda #>screen
-    sta current_high_2
+    ; lda #<screen
+    ; sta current_low_2
+    ; lda #>screen
+    ; sta current_high_2
     ; IN
 ; Stack 0 = x
 ; Stack 1 = y
@@ -537,7 +539,7 @@ random:
 .proc store_head
     lda #$a ; h
     ldy temp_offset
-    sta (current_low_2), y
+    sta screen, y
     rts
 .endproc
 
@@ -840,11 +842,11 @@ rts
         jsr xy_meta_tile_offset
         ;jsr tile_to_screen_space_temp
         ;stx current_high_2
-        ;sty current_low_2
+        ;sty screen
         ldy temp_offset
         ; Erase the tail from the screen copy
         lda #$00 ; TODO - Reload the background at this level's position instead
-        sta (current_low_2), y
+        sta screen, y
 
 
         ; Remove the current tail via nmi queue
@@ -916,7 +918,7 @@ rts
     ldy #$00
     ; Check tile ran into
     ldy temp_offset
-    lda (current_low_2), y
+    lda screen, y
     cmp #$a
     bne no_self
         jmp inf_loop
@@ -980,10 +982,10 @@ rts
 ;     pla ; HIGH Byte
 ;     sta current_high_2
 ;     pla ; LOW Byte
-;     sta current_low_2
+;     sta screen
 ;     ldy #$00
 ;     ; Check tile ran into
-;     lda (current_low_2), y
+;     lda screen, y
 ;     cmp #$a
 ;     bne no_self
 ;         jmp inf_loop
@@ -1308,7 +1310,7 @@ convert_screen_space_to_screen_memory:
     clc
     adc #<screen
     tay
-    ;sta current_low_2
+    ;sta screen
     txa ; High byte
     ;clc
     adc #>screen ; adds carry flag if needed
@@ -1372,7 +1374,7 @@ convert_screen_space_to_screen_memory_stack:
     adc #<screen
     ;tay ; record the low byte to return
     pha ; record the LOW byte to return on the stack
-    ;sta current_low_2
+    ;sta screen
     txa ; High byte
     ;clc
     adc #>screen ; adds carry flag if needed

@@ -1,7 +1,7 @@
 .include "constants.asm"
 ; Drawing the various game boards or levels
 
-.importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high, current_low_2, current_high_2
+.importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows
@@ -151,13 +151,9 @@ load_board_to_nt:
     jsr header_to_ppu_load
     jsr board_to_ppu_load
 
-    lda #<screen
-    sta current_low_2
-    lda #>screen
-    sta current_high_2
     ;jsr ppu_to_screen_space
     ldy #$f0
-    jsr copy_current_low_to_2
+    jsr copy_current_low_to_screen
     jsr attribute_table_load
 rts
 
@@ -373,10 +369,6 @@ rts
 ; tile_map_to_screen:
 ;     ldx #$0
 ;     ldy #$0
-;     lda #<screen
-;     sta current_low_2
-;     lda #>screen
-;     sta current_high_2
 
 ;     ; This transfers from ppu memory to screen memory
 ;     ; x and y are flip flopped because indirect indexing forces us to use y :(
@@ -386,7 +378,7 @@ rts
 ;     ; loop:
 ;     ; Transfer the current memory location to the PPU
 ;     lda (current_low), y
-;     sta (current_low_2), y ; CPU screen memory
+;     sta screen, y ; CPU screen memory
 ;     sta PPU_DATA ; PPU memory
 ;     ; Increment the address
 ;     iny
@@ -447,24 +439,14 @@ place_header_foodx:
     jsr ppu_update_tile_temp
 rts
 
-copy_current_low_to_2:
+copy_current_low_to_screen:
     @loop:
         dey
         lda (current_low), y
-        sta (current_low_2), y
+        sta screen, y
         cpy #$00 ;0
     bne @loop
 rts
-
-; board_to_screen_space:
-;     ldy #$0
-;     @loop:
-;         lda (current_low), y
-;         sta (current_low_2), y
-;         iny
-;         cpy #$f0 ;240
-;     bne @loop
-; rts
 
 board_to_ppu_load:
     lda #>NT0
@@ -565,7 +547,7 @@ rts
 ;             ; Transfer the current memory from the PPU to the screen space
 ;             lda PPU_DATA ; PPU memory
 ;             sta (current_low), y
-;             ;sta (current_low_2), y ; CPU screen memory
+;             ;sta screen, y ; CPU screen memory
 
 ;             ; Increment the address
 ;             iny
@@ -600,11 +582,6 @@ tile_convert:
 rts
 
 place_food:
-    ; Restore current_x_2 after we overwrite them.
-    lda current_high_2
-    pha
-    lda current_low_2
-    pha
     jsr find_blank_tile
     ; txa ; temporarily store X on stack
     ; pha
@@ -628,20 +605,10 @@ place_food:
 
     ;jsr tile_to_screen_space_xy
     jsr xy_meta_tile_offset
-    lda #<screen
-    sta current_low_2
-    lda #>screen
-    sty current_high_2
     ldy temp_offset
 
     lda #$69
-    sta (current_low_2), y
-    pla ; pull low byte from stack
-    sta current_low_2
-    pla ; pull high byte from stack
-    sta current_high_2
-    ;ldy #$0
-    ;sta (current_low_2), y
+    sta screen, y
     
     rts
 
@@ -672,15 +639,10 @@ find_blank_tile:
     ;tay
     ;jsr tile_to_screen_space_xy
     jsr xy_meta_tile_offset
-    lda #<screen
-    sta current_low_2
-    lda #>screen
-    sta current_high_2
-    ;stx current_high_2
-    ;sty current_low_2
+
     ; Check if the tile is free
     ldy temp_offset
-    lda (current_low_2), Y
+    lda screen, Y
     ; TODO Use tile types instead of tile id's
     cmp #$58
     beq fail
