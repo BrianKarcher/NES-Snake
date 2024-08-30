@@ -129,11 +129,12 @@ body_vert_shape:
 blank_shape:
     .byte $00, $00, $00, $00
 
+; same as left down
 body_up_right_shape:
     .byte $02, $05, $80, $00
 
 body_up_left_shape:
-    .byte $05, $03, $11, $81
+    .byte $05, $03, $01, $81
 
 ; same as down_left
 body_right_up_shape:
@@ -141,6 +142,58 @@ body_right_up_shape:
 
 body_right_down_shape:
     .byte $05, $03, $01, $81
+
+; same as left up
+body_down_right_shape:
+    .byte $80, $10, $12, $15
+
+; This is the start of a double-array. The first array index is the previous direction. The second index is the current direction.
+; This determines which body shape to pick.
+; TODO - Consider splitting the high and low bytes into separate arrays to remove the two bit shifts.
+body_lo:
+    .byte <body_up_lo, >body_up_lo, <body_down_lo, >body_down_lo, <body_left_lo, >body_left_lo, <body_right_lo, >body_right_lo ;, <body_down_hi ;, LEFT, RIGHT
+
+body_up_lo:
+    .byte <body_vert_shape, >body_vert_shape
+    .byte <body_vert_shape, >body_vert_shape
+    .byte <body_up_left_shape, >body_up_left_shape
+    .byte <body_up_right_shape, >body_up_right_shape
+
+body_down_lo:
+    .byte <body_vert_shape, >body_vert_shape
+    .byte <body_vert_shape, >body_vert_shape
+    .byte <body_right_up_shape, >body_right_up_shape
+    .byte <body_down_right_shape, >body_down_right_shape
+
+body_left_lo:
+    .byte <body_down_right_shape, >body_down_right_shape
+    .byte <body_up_right_shape, >body_up_right_shape
+    .byte <body_hor_shape, >body_hor_shape
+    .byte <body_hor_shape, >body_hor_shape
+
+body_right_lo:
+    .byte <body_right_up_shape, >body_right_up_shape
+    .byte <body_right_down_shape, >body_right_down_shape
+    .byte <body_hor_shape, >body_hor_shape
+    .byte <body_hor_shape, >body_hor_shape
+    
+; body_hi:
+;     .byte <body_up_hi, >body_up_hi ;, <body_down_hi ;, LEFT, RIGHT
+
+; body_up_hi:
+;     .byte >body_vert_shape, >body_vert_shape, >body_up_left_shape, >body_up_right_shape
+
+; body_down_hi:
+;     .byte $00
+
+; body_lo:
+;     .byte <body_up_lo, >body_up_lo
+
+; body_up_lo:
+;     .byte <body_vert_shape, <body_vert_shape, >body_up_left_shape, >body_up_right_shape
+
+
+
 
 ; body_down_left_shape:
 ;     .byte 
@@ -554,95 +607,143 @@ random:
 .endproc
 
 .proc choose_body_metatile
+
+    ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
     lda prev_dir, X
-    cmp #UP
-    ; This is easy to do in other languages with a double array. We can hack that if needed, but for now I'm using a bunch of if statements
-    ; And honestly, the "double array" would probably be slower than what I am doing here.
-    bne @not_up
-        lda cur_dir, X
-        cmp #DOWN
-        bne :+
-            lda #<body_vert_shape
-            sta current_low
-            lda #>body_vert_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #UP
-        bne :+
-            lda #<body_vert_shape
-            sta current_low
-            lda #>body_vert_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #RIGHT
-        bne :+
-            lda #<body_up_right_shape
-            sta current_low
-            lda #>body_up_right_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #LEFT
-        bne @not_up
-            lda #<body_up_left_shape
-            sta current_low
-            lda #>body_up_left_shape
-            sta current_high
-            jmp @exit
+    asl ; double the value to find the correct index in the array
+    tay
+    lda body_lo, Y
+    sta current_low_2
+    iny
+    lda body_lo, Y
+    sta current_high_2
 
-    @not_up:
-    cmp #RIGHT
-    bne @not_right
-        lda cur_dir, x
-        cmp #LEFT
-        bne :+
-            lda #<body_hor_shape
-            sta current_low
-            lda #>body_hor_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #RIGHT
-        bne :+
-            lda #<body_hor_shape
-            sta current_low
-            lda #>body_hor_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #UP
-        bne :+
-            lda #<body_right_up_shape
-            sta current_low
-            lda #>body_right_up_shape
-            sta current_high
-            jmp @exit
-        :
-        cmp #DOWN
-        bne @not_right
-            lda #<body_right_down_shape
-            sta current_low
-            lda #>body_right_down_shape
-            sta current_high
-            jmp @exit
+    lda cur_dir, x
+    asl
+    tay
+    lda (current_low_2), Y
+    sta current_low
+    iny
+    lda (current_low_2), Y
+    sta current_high
 
-    @not_right:
-    cmp #DOWN
-    bne @not_down
-        lda cur_dir, x
-        cmp #LEFT
-        bne :+
-            lda #<body_right_up_shape
-            sta current_low
-            lda #>body_right_up_shape
-            sta current_high
-            jmp @exit
-        :
 
-    @not_down:
-    @exit:
+    ; Repeat for the double-array to find the prev_dir -> curr_dir combo
+
+
+; body_lo:
+;     .byte <body_up_lo, >body_up_lo ;, <body_down_hi ;, LEFT, RIGHT
+
+; body_2_lo:
+;     .byte <body_vert_shape, >body_vert_shape
+;     .byte <body_vert_shape, >body_vert_shape
+;     .byte <body_up_left_shape, >body_up_left_shape
+;     .byte <body_up_right_shape, >body_up_right_shape
+    ; lda prev_dir, X
+    ; cmp #UP
+    ; ; This is easy to do in other languages with a double array. We can hack that if needed, but for now I'm using a bunch of if statements
+    ; ; And honestly, the "double array" would probably be slower than what I am doing here.
+    ; bne @not_up
+    ;     lda cur_dir, X
+    ;     cmp #DOWN
+    ;     bne :+
+    ;         lda #<body_vert_shape
+    ;         sta current_low
+    ;         lda #>body_vert_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #UP
+    ;     bne :+
+    ;         lda #<body_vert_shape
+    ;         sta current_low
+    ;         lda #>body_vert_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #RIGHT
+    ;     bne :+
+    ;         lda #<body_up_right_shape
+    ;         sta current_low
+    ;         lda #>body_up_right_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #LEFT
+    ;     bne @not_up
+    ;         lda #<body_up_left_shape
+    ;         sta current_low
+    ;         lda #>body_up_left_shape
+    ;         sta current_high
+    ;         jmp @exit
+
+    ; @not_up:
+    ; cmp #RIGHT
+    ; bne @not_right
+    ;     lda cur_dir, x
+    ;     cmp #LEFT
+    ;     bne :+
+    ;         lda #<body_hor_shape
+    ;         sta current_low
+    ;         lda #>body_hor_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #RIGHT
+    ;     bne :+
+    ;         lda #<body_hor_shape
+    ;         sta current_low
+    ;         lda #>body_hor_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #UP
+    ;     bne :+
+    ;         lda #<body_right_up_shape
+    ;         sta current_low
+    ;         lda #>body_right_up_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #DOWN
+    ;     bne @not_right
+    ;         lda #<body_right_down_shape
+    ;         sta current_low
+    ;         lda #>body_right_down_shape
+    ;         sta current_high
+    ;         jmp @exit
+
+    ; @not_right:
+    ; cmp #DOWN
+    ; bne @not_down
+    ;     lda cur_dir, x
+    ;     cmp #LEFT
+    ;     bne :+
+    ;         lda #<body_right_up_shape
+    ;         sta current_low
+    ;         lda #>body_right_up_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #RIGHT
+    ;     bne :+
+    ;         lda #<body_down_right_shape
+    ;         sta current_low
+    ;         lda #>body_down_right_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+    ;     cmp #UP
+    ;     bne :+
+    ;         lda #<body_vert_shape
+    ;         sta current_low
+    ;         lda #>body_vert_shape
+    ;         sta current_high
+    ;         jmp @exit
+    ;     :
+
+    ; @not_down:
+    ; @exit:
 rts
 .endproc
 
@@ -741,9 +842,8 @@ rts
         ;stx current_high_2
         ;sty current_low_2
         ldy temp_offset
-        ; Erase the tail
-        ; This is optional, more for debugging
-        lda #$00
+        ; Erase the tail from the screen copy
+        lda #$00 ; TODO - Reload the background at this level's position instead
         sta (current_low_2), y
 
 
