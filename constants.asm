@@ -12,7 +12,6 @@ START_X         = $0500
 START_Y         = $0502
 ;COLOR_BLACK     = #$0f
 ;COLOR_WHITE     = #$20
-JOYPAD1         = $4016
 LEVEL_CHANGE    = $01
 
 UP = 0

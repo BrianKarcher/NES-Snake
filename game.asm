@@ -2,9 +2,10 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
+.import readjoy2_safe
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -87,7 +88,7 @@ prev_dir:       .res 2 ; 34, 35
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
-screen:     .res 960 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
+screen:     .res 240 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
                         ; We sacrifice memory for speed, it takes a while to check collisions on a 100-size snake if not in screen mirror memory.
                      ; The snake is mutable background and collides with itself.
 
@@ -1537,45 +1538,6 @@ coord_quarter:
     lsr ; Divide by 4
     tay
     ;sta temp_y
-    rts
-
-; At the same time that we strobe bit 0, we initialize the ring counter
-; so we're hitting two birds with one stone here
-readjoyx2:
-    ldx #$00
-    jsr readjoyx    ; X=0: read controller 1
-    inx
-    ; fall through to readjoyx below, X=1: read controller 2
-
-readjoyx:           ; X register = 0 for controller 1, 1 for controller 2
-    lda #$01
-    sta JOYPAD1
-    sta buttons, x
-    lsr a
-    sta JOYPAD1
-button_loop:
-    lda JOYPAD1, x
-    and #%00000011  ; ignore bits other than controller
-    cmp #$01        ; Set carry if and only if nonzero
-    rol buttons, x  ; Carry -> bit 0; but 7 -> Carry
-    bcc button_loop
-    rts
-
-readjoy2_safe:
-    ldx #$00
-    jsr readjoyx_safe  ; X=0: safe read controller 1
-    inx
-    ; fall through to readjoyx_safe, X=1: safe read controller 2
-
-readjoyx_safe:
-    jsr readjoyx
-reread:
-    lda buttons, x
-    pha
-    jsr readjoyx
-    pla
-    cmp buttons, x
-    bne reread
     rts
 
 .segment "VECTORS"

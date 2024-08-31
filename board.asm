@@ -100,19 +100,19 @@ level_complete_message:
 ; 1 = wall
 ;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 top_left:
-.byte 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0
+.byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0
 
 top_right:
-.byte 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0
+.byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0
 
 bottom_left:
-.byte 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0
+.byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0
 
 bottom_right:
-.byte 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0
+.byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0
 
 color:
-.byte 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3
 
 food_header_offset:
     .byte 6, 20
@@ -475,10 +475,10 @@ board_to_ppu_load:
             lda (current_low), y
             tax
             lda top_left, x
-            jsr tile_convert
+            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             lda top_right, x
-            jsr tile_convert
+            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             
             ; Increment the address
@@ -493,10 +493,10 @@ board_to_ppu_load:
             lda (current_low), y
             tax
             lda bottom_left, x
-            jsr tile_convert
+            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             lda bottom_right, x
-            jsr tile_convert
+            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             
             ; Increment the address
