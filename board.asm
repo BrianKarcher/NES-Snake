@@ -4,7 +4,7 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
-.import xy_meta_tile_offset, screen_rows
+.import xy_meta_tile_offset, screen_rows, place_shape
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
 
 ; 2x2 tiles. indexes into the tile table below
@@ -112,10 +112,13 @@ bottom_right:
 .byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0
 
 color:
-.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3
+.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0
 
 food_header_offset:
     .byte 6, 20
+
+food_shape:
+    .byte $b0, $b1, $c0, $c1
 
 ; Make sure PPU rendering is OFF before calling this
 draw_board:
@@ -583,20 +586,25 @@ rts
 
 place_food:
     jsr find_blank_tile
+    lda #$b
+    sta screen, y
     ; txa ; temporarily store X on stack
     ; pha
     ; tya ; temporarily store Y on stack
     ; pha
-    lda #$69
-    sta temp_a
-    tya
-    ; clc
-    ; adc #$02 ; align with screen
-    sta temp_y
-    txa
-    sta temp_x
+    lda #<food_shape
+    sta current_low
+    lda #>food_shape
+    sta current_high
+    ; tya
+    ; ; clc
+    ; ; adc #$02 ; align with screen
+    ; sta temp_y
+    ; txa
+    ; sta temp_x
     jsr screen_space_to_ppu_space
-    jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
+    jsr place_shape
+    ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
     
     ; pla ; Pull Y off the stack
     ; tay
@@ -604,11 +612,8 @@ place_food:
     ; tax
 
     ;jsr tile_to_screen_space_xy
-    jsr xy_meta_tile_offset
-    ldy temp_offset
-
-    lda #$69
-    sta screen, y
+    ;jsr xy_meta_tile_offset
+    ;ldy temp_offset
     
     rts
 
@@ -646,7 +651,7 @@ find_blank_tile:
     ; TODO Use tile types instead of tile id's
     cmp #$58
     beq fail
-    cmp #$69
+    cmp #$b
     beq fail
     cmp #$a ; Cannot place on top of snake
     beq fail

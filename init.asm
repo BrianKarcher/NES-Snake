@@ -3,9 +3,13 @@
 .export load_palette
 
 forest_palette_0:
-    .byte $2a, $0f, $15, $30 ; header
+    .byte $2a, $0f, $15, $30 ; header ; background
     .byte $0f, $2a, $27, $26 ; grass
     .byte $0f, $0f, $3d, $2d ; grays
+    .byte $0f, $1c, $27, $30 ; snake
+    .byte $0f, $1c, $27, $30 ; snake ; sprites
+    .byte $0f, $1c, $27, $30 ; snake
+    .byte $0f, $1c, $27, $30 ; snake
     .byte $0f, $1c, $27, $30 ; snake
 
 .proc load_palette
@@ -19,7 +23,7 @@ forest_palette_0:
         lda forest_palette_0, x
         sta PPU_DATA
         inx
-        cpx #$10
+        cpx #$20
         bne palette_loop
     rts
 .endproc

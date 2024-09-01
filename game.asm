@@ -5,7 +5,7 @@
 .import readjoy2_safe
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, place_shape
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -83,6 +83,14 @@ current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
 temp_offset:    .res 1 ; 33
 prev_dir:       .res 2 ; 34, 35
+x_px:           .res 2 ; 36, 37
+x_sub_px:       .res 2
+y_px:           .res 2
+y_sub_px:       .res 2
+x_vel:          .res 2
+x_vel_sub_px:   .res 2 ; Velocity will never be a pixel or above - WAY too fast.
+y_vel:          .res 2
+y_vel_sub_px:   .res 2
 ; screen_lo       .res 1 ; 36
 ; screen_hi       .res 1 ; 37
 
@@ -320,7 +328,7 @@ sta $4010  ; enable DMC IRQs
     lda #$00
     sta level_complete
     jsr draw_board
-    ;jsr place_food
+    jsr place_food
     jsr init_level_variables
     ;jsr place_header_food
     jsr init_place_snake
@@ -339,7 +347,7 @@ random:
 .proc init_level_variables
     ldy #$00
     init_snake:
-        lda #BUTTON_RIGHT
+        lda #RIGHT
         sta cur_dir, y
         sta prev_dir, y
         sta next_dir, y
@@ -349,10 +357,20 @@ random:
         sta head_x, y
         sta tail_x, y
         sta new_x, y
+        asl ; Multiply by 16 to get x in pixels
+        asl
+        asl
+        asl
+        lda head_x_px, y
         lda START_Y, y
         sta head_y, y
         sta tail_y, y
         sta new_y, y
+        asl ; Multiply by 16 to get y in pixels
+        asl
+        asl
+        asl
+        sta head_y_px, y
         lda #$00
         sta head_index, y
         sta tail_index, y
@@ -928,7 +946,7 @@ rts
     bne no_wall
         jmp inf_loop
     no_wall:
-    cmp #$69 ; food!
+    cmp #$b ; food!
     bne @no_coll
         ;jmp inf_loop
         lda target_size, x
