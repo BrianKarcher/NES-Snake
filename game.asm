@@ -83,14 +83,16 @@ current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
 temp_offset:    .res 1 ; 33
 prev_dir:       .res 2 ; 34, 35
+; Postions are an 8.4 fixed point structure. This requires two bytes.
 x_px:           .res 2 ; 36, 37
 x_sub_px:       .res 2
 y_px:           .res 2
 y_sub_px:       .res 2
-x_vel:          .res 2
-x_vel_sub_px:   .res 2 ; Velocity will never be a pixel or above - WAY too fast.
-y_vel:          .res 2
-y_vel_sub_px:   .res 2
+; x_vel:          .res 2
+; Velocities are a 4.4 fixed point structure. This requires one byte. The significant byte stores the sign. 2's compliment is the signed notation.
+x_vel_px:   .res 2 ; Velocity will never be a pixel or above - WAY too fast.
+; y_vel:          .res 2
+y_vel_px:   .res 2
 ; screen_lo       .res 1 ; 36
 ; screen_hi       .res 1 ; 37
 
@@ -1557,6 +1559,30 @@ coord_quarter:
     tay
     ;sta temp_y
     rts
+
+; IN A in positive
+; OUT A in negative notation via two's compliment.
+; Example: #02, xor'd turns into #FD, add 1 gives the result FE.
+; If we take #03 and add #FE from above, we get %0001 0000 0001 - HOWEVER, since we are in 8-bit the resulting value is 1! Which is 3 - 2.
+; Refer to https://stackoverflow.com/questions/1049722/what-is-twos-complement
+.proc toTwosCompliment
+    eor #ff
+    clc
+    adc #$1
+rts
+.endproc
+
+; Reverse the above function to reverse two's compliment.
+; This turns a negative number into a positive number but cannot be used on a number that is already positive.
+; This should be called by an absolute value function when needed.
+; IN A in two's compliment
+; OUT A as its positive value
+.proc exitTwosCompliment
+    sec
+    sbc #$1
+    eor #ff
+rts
+.endproc
 
 .segment "VECTORS"
 	.addr nmi, reset, 0
