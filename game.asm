@@ -90,6 +90,7 @@ y_px:           .res 2
 y_sub_px:       .res 2
 ; x_vel:          .res 2
 ; Velocities are a 4.4 fixed point structure. This requires one byte. The significant byte stores the sign. 2's compliment is the signed notation.
+; 4.4 = 1 (sign) + 3 bytes for the pixel + 4 bytes for the subpixel.
 x_vel_px:   .res 2 ; Velocity will never be a pixel or above - WAY too fast.
 ; y_vel:          .res 2
 y_vel_px:   .res 2
@@ -368,6 +369,8 @@ random:
         sta head_y, y
         sta tail_y, y
         sta new_y, y
+        clc
+        adc #$1 ; header adjustment
         asl ; Multiply by 16 to get y in pixels
         asl
         asl
@@ -443,13 +446,27 @@ random:
         beq @end
             jsr process_level_change
     @end:
+    lda x_sub_px
+    clc
+    adc #$7
+    sta x_sub_px
+    lda x_px
+    adc #$0 ; add carry
+    sta x_px
     jsr draw_head
     rts
+.endproc
+
+.proc move_head_px
+
+rts
 .endproc
 
 .proc draw_head
     ldx #$0
     lda y_px
+    ;clc
+    ;adc #$f ; header adjustment
     sta OAM, x
     inx
     lda #$00 ; tile number
@@ -464,7 +481,7 @@ random:
     ; clear the other 63 sprites
     @forx:
         inx
-        lda #$ff ; don't render the sprite
+        lda #$ff ; don't render the sprite, ff is an out of bounds Y value
         sta OAM, X
         inx
         lda #$00
