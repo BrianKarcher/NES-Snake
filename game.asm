@@ -297,8 +297,8 @@ jsr init_game
 jsr init_level
 
 ; Trigger OAMDMA transfer
-lda #$80
-sta $2000  ; enable NMI
+lda #%10001000
+sta $2000  ; enable NMI, sprite pattern table starts at $1000
 lda #$1e
 sta $2001  ; enable rendering
 lda #$ff
@@ -363,7 +363,7 @@ random:
         asl
         asl
         asl
-        lda head_x_px, y
+        sta x_px, y
         lda START_Y, y
         sta head_y, y
         sta tail_y, y
@@ -372,7 +372,7 @@ random:
         asl
         asl
         asl
-        sta head_y_px, y
+        sta y_px, y
         lda #$00
         sta head_index, y
         sta tail_index, y
@@ -443,7 +443,41 @@ random:
         beq @end
             jsr process_level_change
     @end:
+    jsr draw_head
     rts
+.endproc
+
+.proc draw_head
+    ldx #$0
+    lda y_px
+    sta OAM, x
+    inx
+    lda #$00 ; tile number
+    sta OAM, x
+    inx
+    lda #$0 ; attributes
+    sta OAM, X
+    inx
+    lda x_px
+    sta OAM, x
+
+    ; clear the other 63 sprites
+    @forx:
+        inx
+        lda #$ff ; don't render the sprite
+        sta OAM, X
+        inx
+        lda #$00
+        sta OAM, X
+        inx
+        lda #$00
+        sta OAM, X
+        inx
+        lda #$00
+        sta OAM, x
+        cpx #$ff
+    bne @forx
+rts
 .endproc
 
 .proc move_snake
@@ -1564,9 +1598,11 @@ coord_quarter:
 ; OUT A in negative notation via two's compliment.
 ; Example: #02, xor'd turns into #FD, add 1 gives the result FE.
 ; If we take #03 and add #FE from above, we get %0001 0000 0001 - HOWEVER, since we are in 8-bit the resulting value is 1! Which is 3 - 2.
+; We can now add or subtract signed integers without the need for a condition check on any of the signs.
+; It's also compatible with one of the values being unsinged.
 ; Refer to https://stackoverflow.com/questions/1049722/what-is-twos-complement
 .proc toTwosCompliment
-    eor #ff
+    eor #$ff
     clc
     adc #$1
 rts
@@ -1580,7 +1616,7 @@ rts
 .proc exitTwosCompliment
     sec
     sbc #$1
-    eor #ff
+    eor #$ff
 rts
 .endproc
 
