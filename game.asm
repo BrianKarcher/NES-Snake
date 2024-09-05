@@ -83,23 +83,23 @@ current_level:  .res 1 ; 31
 level_complete: .res 1 ; 32
 temp_offset:    .res 1 ; 33
 prev_dir:       .res 2 ; 34, 35
+return:         .res 2 ; 36, 37 sub return value
 ; Postions are an 8.4 fixed point structure. This requires two bytes.
-x_px:           .res 2 ; 36, 37
-x_sub_px:       .res 2 ; 38, 39
-y_px:           .res 2 ; 3a, 3b
-y_sub_px:       .res 2 ; 3c, 3d
+x_px:           .res 2 ; 38, 39
+x_sub_px:       .res 2 ; 3a, 3b
+y_px:           .res 2 ; 3c, 3d
+y_sub_px:       .res 2 ; 3e, 3f
 ; x_vel:          .res 2
 ; Velocities are a 4.4 fixed point structure. This requires one byte. The significant byte stores the sign. 2's compliment is the signed notation.
 ; 4.4 = 1 (sign) + 3 bits for the pixel + 4 bits for the subpixel.
-x_vel_px:       .res 2 ; 3e, 3f
-x_vel_sub_px:   .res 2 ; 40, 41
+x_vel_px:       .res 2 ; 40, 41
+;x_vel_sub_px:   .res 2 ; 40, 41
 ; y_vel:          .res 2
-y_vel_px:       .res 2 ; 41, 42
-y_vel_sub_px:   .res 2 ; 43, 44
+y_vel_px:       .res 2 ; 42, 43
+;y_vel_sub_px:   .res 2 ; 43, 44
 ; screen_lo       .res 1 ; 36
 ; screen_hi       .res 1 ; 37
-return:         .res 2 ; 45, 46 sub return value
-zp_temp_4:      .res 1
+zp_temp_4:      .res 1 ; 44
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -455,21 +455,45 @@ random:
         beq @end
             jsr process_level_change
     @end:
-    lda x_sub_px
-    clc
-    adc x_vel_sub_px
-    sta x_sub_px
     lda x_px
-    adc x_vel_px
+    sta zp_temp_1
+    lda x_sub_px
+    sta zp_temp_2
+    lda x_vel_px
+    sta zp_temp_3
+    jsr add_signed_unsigned_8_16_bit
+    lda return
     sta x_px
+    lda return + 1
+    sta x_sub_px
 
-    lda y_sub_px
-    clc
-    adc y_vel_px
-    sta y_sub_px
     lda y_px
-    adc y_vel_px
+    sta zp_temp_1
+    lda y_sub_px
+    sta zp_temp_2
+    lda y_vel_px
+    sta zp_temp_3
+    jsr add_signed_unsigned_8_16_bit
+    lda return
     sta y_px
+    lda return + 1
+    sta y_sub_px
+
+    ; lda x_sub_px
+    ; clc
+    ; adc x_vel_sub_px
+    ; sta x_sub_px
+    ; lda x_px
+    ; adc x_vel_px
+    ; sta x_px
+
+    ; lda y_sub_px
+    ; clc
+    ; adc y_vel_px
+    ; sta y_sub_px
+    ; lda y_px
+    ; adc y_vel_px
+    ; sta y_px
     jsr draw_head
     rts
 .endproc
@@ -534,61 +558,55 @@ rts
     cmp #UP
     bne @notUp
     dec new_y, x
-    lda y_speed
+    lda #$05
     clc
     jsr toTwosCompliment
-    sta y_vel_sub_px
-    lda #$0
-    ; Do high byte
-    adc #$0 ; carry
-    jsr toTwosCompliment
     sta y_vel_px
+    ; lda #$0
+    ; ; Do high byte
+    ; adc #$0 ; carry
+    ; jsr toTwosCompliment
+    ; sta y_vel_px
 
     lda #$0
     sta x_vel_px
-    sta x_vel_sub_px
     jmp @buttonEnd
 
     @notUp:
     cmp #DOWN
     bne @notDown
     inc new_y, x
-    lda y_speed
-    sta y_vel_sub_px
-    lda #$0
+    lda #$05
     sta y_vel_px
+    lda #$0
     sta x_vel_px
-    sta x_vel_sub_px
     jmp @buttonEnd
 
     @notDown:
     cmp #LEFT
     bne @notLeft
     dec new_x, x
-    lda x_speed
+    lda #$05
     clc
     jsr toTwosCompliment
-    sta x_vel_sub_px
-    ; Do high byte
-    lda #$0
-    adc #$0 ; carry
-    jsr toTwosCompliment
     sta x_vel_px
+    ; ; Do high byte
+    ; lda #$0
+    ; adc #$0 ; carry
+    ; jsr toTwosCompliment
+    ; sta x_vel_px
     lda #$0
     sta y_vel_px
-    sta y_vel_sub_px
     jmp @buttonEnd
 
     @notLeft:
     cmp #RIGHT
     bne @buttonEnd
     inc new_x, x
-    lda x_speed
-    sta x_vel_sub_px
-    lda #$0
+    lda #$05
     sta x_vel_px
+    lda #$0
     sta y_vel_px
-    sta y_vel_sub_px
 
     @buttonEnd:
     rts
@@ -1763,10 +1781,52 @@ rts
     ; Now the signed number is converted to positive. Add unsigned number.
     SEC              ; Set carry for subtraction
     SBC zp_temp_2    ; Subtract unsigned number from the converted signed number
-    sta return + 1   ; store the hi byte
+    sta return + 1   ; store the lo byte
     lda zp_temp_3
     sbc zp_temp_1
-    sta return       ; store the lo byte
+    sta return       ; store the hi byte
+    @store_result:
+rts
+.endproc
+
+; Input: Unsigned number in memory at zp_temp_1 (HI),zp_temp_2 (LO) (e.g., 5).
+;        Signed number in memory at zp_temp_3 (8-bit) (e.g., -3).
+; Output: Result stored at return HI,LO (treated as unsigned).
+.proc add_signed_unsigned_8_16_bit
+    CLC              ; Clear carry flag
+    LDA zp_temp_3    ; Load the signed number
+
+    ; Check if the signed number is negative
+    BMI @convert_neg  ; If the number is negative (bit 7 set), jump to convert_neg
+
+    ; If positive, just add directly as an unsigned number
+    clc
+    ADC zp_temp_2    ; Add unsigned number lo
+    sta return + 1
+    lda zp_temp_1    ; Now do HI
+    adc #$00         ; carry
+    sta return
+    BVC @store_result ; If no overflow, store result
+    ; Handle overflow (optional)
+    JMP @store_result ; Skip to store result
+
+@convert_neg:
+    ; Convert negative signed number to its unsigned equivalent
+    ; Start with low byte
+    EOR #$FF         ; Invert bits (2's complement step 1)
+    CLC              ; Clear carry for addition
+    ADC #$01         ; Add 1 (2's complement step 2)
+    sta zp_temp_3
+
+    ; Now the signed number is converted to positive. Add unsigned number.
+    lda zp_temp_2
+    SEC              ; Set carry for subtraction
+    SBC zp_temp_3    ; Subtract unsigned number LO from the converted signed number
+    sta return + 1   ; store the lo byte
+    lda zp_temp_1
+    sbc #$00          ; add carry
+    ;sta zp_temp_1    ; retain carry
+    sta return       ; store the hi byte
 
 @store_result:
     ;STA $02          ; Store the result in $02 (interpreted as signed)
