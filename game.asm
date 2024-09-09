@@ -114,9 +114,9 @@ dirs:
     .byte UP, DOWN, LEFT, RIGHT
 
 x_speed:
-    .byte $05 ; TODO: Turn this into an array so player can choose game speed
+    .byte $16 ; TODO: Turn this into an array so player can choose game speed
 y_speed:
-    .byte $05
+    .byte $16
 
 button_dirs:
     .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
@@ -373,7 +373,11 @@ random:
         asl
         asl
         asl
+        jsr convert_unsigned_to_signed_fixed_point ; convert to fixed point
+        lda return
         sta x_px, y
+        lda return + 1
+        sta x_sub_px
         lda START_Y, y
         sta head_y, y
         sta tail_y, y
@@ -384,7 +388,11 @@ random:
         asl
         asl
         asl
+        jsr convert_unsigned_to_signed_fixed_point ; convert to fixed point
+        lda return
         sta y_px, y
+        lda return + 1
+        sta y_sub_px
         lda #$00
         sta head_index, y
         sta tail_index, y
@@ -506,6 +514,10 @@ rts
 .proc draw_head
     ldx #$0
     lda y_px
+    sta zp_temp_1
+    lda y_sub_px
+    sta zp_temp_2
+    jsr convert_fixed_point_to_unsigned
     ;clc
     ;adc #$f ; header adjustment
     sta OAM, x
@@ -517,6 +529,10 @@ rts
     sta OAM, X
     inx
     lda x_px
+    sta zp_temp_1
+    lda x_sub_px
+    sta zp_temp_2
+    jsr convert_fixed_point_to_unsigned
     sta OAM, x
 
     ; clear the other 63 sprites
@@ -558,7 +574,7 @@ rts
     cmp #UP
     bne @notUp
     dec new_y, x
-    lda #$05
+    lda y_speed
     clc
     jsr toTwosCompliment
     sta y_vel_px
@@ -576,7 +592,7 @@ rts
     cmp #DOWN
     bne @notDown
     inc new_y, x
-    lda #$05
+    lda y_speed
     sta y_vel_px
     lda #$0
     sta x_vel_px
@@ -586,7 +602,7 @@ rts
     cmp #LEFT
     bne @notLeft
     dec new_x, x
-    lda #$05
+    lda x_speed
     clc
     jsr toTwosCompliment
     sta x_vel_px
@@ -603,7 +619,7 @@ rts
     cmp #RIGHT
     bne @buttonEnd
     inc new_x, x
-    lda #$05
+    lda x_speed
     sta x_vel_px
     lda #$0
     sta y_vel_px
@@ -1830,6 +1846,49 @@ rts
 
 @store_result:
     ;STA $02          ; Store the result in $02 (interpreted as signed)
+rts
+.endproc
+
+; Converts an unsigned 8-bit integer to a 16-bit signed fixed point (8.4).
+; IN A - the 8-bit int
+; OUT return (HI), return + 1 (LO)
+.proc convert_unsigned_to_signed_fixed_point
+    ; Take the 4 most significant bits, move them to the high byte's low 4 bits
+    pha ; store A on the stack
+    and #$f0 ; Get the four high bytes
+    lsr
+    lsr
+    lsr
+    lsr ; Shift those bytes right
+    sta return ; store HI
+    pla ; restore A
+    asl
+    asl
+    asl
+    asl ; Shift least sig. 4 bits to most sig. Subpixels are zero.
+    sta return + 1 ; store LO
+rts
+.endproc
+
+; Converts a 16-bit fixed point number (8.4) to an 8-bit unsigned number.
+; The fixed point number is assumed to be positive. I use this for pixel conversion.
+; Subpixels get stripped away
+; IN zp_temp_1 (HI), zp_temp_2 (LO)
+; OUT A
+.proc convert_fixed_point_to_unsigned
+    lda zp_temp_1
+    asl
+    asl
+    asl
+    asl ; shift left 4 times
+    ;pha ; Toss on the stack
+    sta zp_temp_1
+    lda zp_temp_2
+    lsr
+    lsr
+    lsr
+    lsr ; shift right 4 times
+    ora zp_temp_1
 rts
 .endproc
 
