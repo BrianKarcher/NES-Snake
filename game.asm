@@ -72,7 +72,7 @@ current_low:    .res 1 ; 25 Low byte of current address, this is a memory pointe
 current_high:   .res 1 ; 26 High byte of current address
 current_low_2:  .res 1 ; 27
 current_high_2: .res 1 ; 28
-snake_speed:    .res 1 ; 29
+snake_speed:    .res 1 ; 29 UNUSED
 random_index:   .res 1 ; 2a
 food_count:     .res 2 ; 2b, 2c
 temp_a:         .res 1 ; 2d
@@ -331,8 +331,8 @@ sta $4010  ; enable DMC IRQs
     ; TODO player_count and snake_speed to be in-game user-selected values
     lda #$1
     sta player_count
-    lda #$10
-    sta snake_speed
+    ; lda #$10
+    ; sta snake_speed
     rts
 .endproc
 
@@ -453,9 +453,12 @@ random:
 .endproc
 
 .proc process_snake
-	lda tick_count
-    cmp snake_speed ; snake speed - how many ticks to skip between updates.
-	bne @end
+    jsr move_head_px
+    jsr draw_head
+    
+    ; Determine if the head has reached a new tile
+    jsr check_tile_change
+    beq @end
         lda #$00
         sta tick_count ; reset frame counter
         jsr move_snake
@@ -463,6 +466,62 @@ random:
         beq @end
             jsr process_level_change
     @end:
+    rts
+.endproc
+
+; OUT A (1 = changed, 0 = unchanged)
+.proc check_tile_change
+    lda cur_dir
+    cmp #UP
+    bne @not_up
+        jmp @check_y
+    @not_up:
+    cmp #DOWN
+    bne @not_down
+        jmp @check_y
+    @not_down:
+    cmp #LEFT
+    bne @not_left
+        jmp @check_x
+    @not_left:
+    cmp #RIGHT
+    bne @end
+        jmp @check_x
+
+    @check_y:
+        ; check if y is in a new tile
+        jsr convert_fixed_point_y_to_unsigned
+        lsr
+        lsr
+        lsr
+        lsr ; divide by 16
+        cmp head_y
+        beq @end
+        ; y tile changed
+        sta head_y
+        lda #$1
+        rts
+
+    @check_x:
+        ; check if y is in a new tile
+        jsr convert_fixed_point_x_to_unsigned
+        lsr
+        lsr
+        lsr
+        lsr ; divide by 16
+        cmp head_x
+        beq @end
+        ; x tile changed
+        sta head_x
+        lda #$1
+        rts
+
+	@end:
+        lda #$0
+        rts
+.endproc
+
+.proc move_head_px
     lda x_px
     sta zp_temp_1
     lda x_sub_px
@@ -486,38 +545,12 @@ random:
     sta y_px
     lda return + 1
     sta y_sub_px
-
-    ; lda x_sub_px
-    ; clc
-    ; adc x_vel_sub_px
-    ; sta x_sub_px
-    ; lda x_px
-    ; adc x_vel_px
-    ; sta x_px
-
-    ; lda y_sub_px
-    ; clc
-    ; adc y_vel_px
-    ; sta y_sub_px
-    ; lda y_px
-    ; adc y_vel_px
-    ; sta y_px
-    jsr draw_head
-    rts
-.endproc
-
-.proc move_head_px
-
 rts
 .endproc
 
 .proc draw_head
     ldx #$0
-    lda y_px
-    sta zp_temp_1
-    lda y_sub_px
-    sta zp_temp_2
-    jsr convert_fixed_point_to_unsigned
+    jsr convert_fixed_point_y_to_unsigned
     ;clc
     ;adc #$f ; header adjustment
     sta OAM, x
@@ -528,11 +561,7 @@ rts
     lda #$0 ; attributes
     sta OAM, X
     inx
-    lda x_px
-    sta zp_temp_1
-    lda x_sub_px
-    sta zp_temp_2
-    jsr convert_fixed_point_to_unsigned
+    jsr convert_fixed_point_x_to_unsigned
     sta OAM, x
 
     ; clear the other 63 sprites
@@ -1868,6 +1897,24 @@ rts
     asl ; Shift least sig. 4 bits to most sig. Subpixels are zero.
     sta return + 1 ; store LO
 rts
+.endproc
+
+.proc convert_fixed_point_y_to_unsigned
+    lda y_px
+    sta zp_temp_1
+    lda y_sub_px
+    sta zp_temp_2
+    jsr convert_fixed_point_to_unsigned
+    rts
+.endproc
+
+.proc convert_fixed_point_x_to_unsigned
+    lda x_px
+    sta zp_temp_1
+    lda x_sub_px
+    sta zp_temp_2
+    jsr convert_fixed_point_to_unsigned
+    rts
 .endproc
 
 ; Converts a 16-bit fixed point number (8.4) to an 8-bit unsigned number.
