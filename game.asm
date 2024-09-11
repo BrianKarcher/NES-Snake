@@ -446,6 +446,9 @@ random:
     jsr place_shape
     inc size, x
 
+    lda x_speed
+    sta x_vel_px, x ; TODO - Change it so that the snake doesn't move at the start for a time so the player can view the level.
+
     inx
     cpx player_count
     bne @loop
@@ -455,39 +458,85 @@ random:
 .proc process_snake
     jsr move_head_px
     jsr draw_head
-    
+
     ; Determine if the head has reached a new tile
     jsr check_tile_change
+    cmp #$0
     beq @end
-        lda #$00
-        sta tick_count ; reset frame counter
-        jsr move_snake
-        lda level_complete
-        beq @end
-            jsr process_level_change
+    ;     lda #$00
+    ;     sta tick_count ; reset frame counter
+    jsr align_head
+    jsr move_snake
+    ;     lda level_complete
+    ;     beq @end
+    ;         jsr process_level_change
     @end:
     rts
 .endproc
 
+; Place the head directly onto a tile's coords. Used when changing directions so the head always stays exactly on a tile.
+.proc align_head
+    ; Only align the head when changing directions.
+    lda cur_dir
+    cmp next_dir
+    beq @end
+        cmp #LEFT
+        bne @not_left
+            inc head_x
+            jmp @not_up
+        @not_left:
+        cmp #UP
+        bne @not_up
+            inc head_y
+        @not_up:
+        lda head_x
+        asl
+        asl
+        asl
+        asl ; multiply by 16
+
+        jsr convert_unsigned_to_signed_fixed_point
+        lda return
+        sta x_px
+        lda return + 1
+        sta x_sub_px
+
+        lda head_y
+        asl
+        asl
+        asl
+        asl ; multiply by 16
+        jsr convert_unsigned_to_signed_fixed_point
+        lda return
+        sta y_px
+        lda return + 1
+        sta y_sub_px
+    @end:
+rts
+.endproc
+
 ; OUT A (1 = changed, 0 = unchanged)
 .proc check_tile_change
-    lda cur_dir
-    cmp #UP
-    bne @not_up
-        jmp @check_y
-    @not_up:
-    cmp #DOWN
-    bne @not_down
-        jmp @check_y
-    @not_down:
-    cmp #LEFT
-    bne @not_left
-        jmp @check_x
-    @not_left:
-    cmp #RIGHT
-    bne @end
-        jmp @check_x
-
+    ; lda cur_dir
+    ; cmp #UP
+    ; bne @not_up
+    ;     jsr @check_y
+    ;     jsr @check_x
+    ;     rts
+    ; @not_up:
+    ; cmp #DOWN
+    ; bne @not_down
+    ;     jmp @check_y
+    ; @not_down:
+    ; cmp #LEFT
+    ; bne @not_left
+    ;     jmp @check_x
+    ; @not_left:
+    ; cmp #RIGHT
+    ; bne @end
+    ;     jmp @check_x
+    lda #$0
+    sta return
     @check_y:
         ; check if y is in a new tile
         jsr convert_fixed_point_y_to_unsigned
@@ -496,11 +545,11 @@ random:
         lsr
         lsr ; divide by 16
         cmp head_y
-        beq @end
+        beq @check_x
         ; y tile changed
         sta head_y
         lda #$1
-        rts
+        sta return
 
     @check_x:
         ; check if y is in a new tile
@@ -514,10 +563,10 @@ random:
         ; x tile changed
         sta head_x
         lda #$1
-        rts
+        sta return
 
 	@end:
-        lda #$0
+        lda return
         rts
 .endproc
 
@@ -587,7 +636,7 @@ rts
     ldx #$0
     @loop:
     jsr move_snake_on_input
-    jsr move_snakex
+    ;jsr move_snakex
     inx
     cpx player_count
     bne @loop
