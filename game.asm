@@ -113,10 +113,17 @@ screen_rows: ; screen offset to start of each row
 dirs:
     .byte UP, DOWN, LEFT, RIGHT
 
-x_speed:
-    .byte $16 ; TODO: Turn this into an array so player can choose game speed
-y_speed:
-    .byte $16
+; The speed in UP, DOWN, LEFT, RIGHT, using two's compliment for UP and LEFT.
+speed_x_dir:
+    .byte $0, $0, $EA, $16
+
+speed_y_dir:
+    .byte $EA, $16, $0, $0
+
+; x_speed:
+;     .byte $16 ; TODO: Turn this into an array so player can choose game speed
+; y_speed:
+;     .byte $16
 
 button_dirs:
     .byte BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT
@@ -129,19 +136,40 @@ snakes_hi:
 snakes_lo:
     .byte <SNAKE, <SNAKE2
 
-head_up_shape:
-    .byte $08, $09, $18, $19
-head_down_shape:
-    .byte $0c, $0d, $1c, $1d
-head_left_shape:
-    .byte $0a, $0b, $1a, $1b
-head_right_shape:
-    .byte $06, $07, $16, $17
+; head_up_entity:
+;     .byte $02
+
+; head_down_entity:
+;     .byte $06
+
+; head_left_entity:
+;     .byte $04
+
+; head_right_entity:
+;     .byte $00
+
+; head_up_shape:
+;     .byte $08, $09, $18, $19
+; head_down_shape:
+;     .byte $0c, $0d, $1c, $1d
+; head_left_shape:
+;     .byte $0a, $0b, $1a, $1b
+; head_right_shape:
+;     .byte $06, $07, $16, $17
 ; This 8-bit processor drives me NUTS with the high and low bytes.
-head_hi:
-    .byte >head_up_shape, >head_down_shape, >head_left_shape, >head_right_shape
-head_lo:
-    .byte <head_up_shape, <head_down_shape, <head_left_shape, <head_right_shape
+; head_hi:
+;     .byte >head_up_shape, >head_down_shape, >head_left_shape, >head_right_shape
+; head_lo:
+;     .byte <head_up_shape, <head_down_shape, <head_left_shape, <head_right_shape
+; head_hi:
+;     .byte >head_up_entity, >head_down_entity, >head_left_entity, >head_right_entity
+; head_lo:
+;     .byte <head_up_entity, <head_down_entity, <head_left_entity, <head_right_entity
+
+; I'm lazy so assuming that all sprites are stored in a perfect rectangle in CHR-ROM
+; Store the top-left tile for each entity
+head_dir:
+    .byte $02, $06, $04, $00
 
 body_hor_shape:
     .byte $05, $05, $15, $15
@@ -436,17 +464,18 @@ random:
     lda new_y, x
     sta head_y, x
     sta temp_y
-    ldy cur_dir, x
-    lda head_lo, y
-    sta current_low
-    lda head_hi, y
-    sta current_high
-    jsr screen_space_to_ppu_space
-    ;jsr ppu_update_tile_temp
-    jsr place_shape
+    ; ldy cur_dir, x
+    ; lda head_lo, y
+    ; sta current_low
+    ; lda head_hi, y
+    ; sta current_high
+    ; jsr screen_space_to_ppu_space
+    ; ;jsr ppu_update_tile_temp
+    ; jsr place_shape
     inc size, x
 
-    lda x_speed
+    ldy #RIGHT
+    lda speed_x_dir, y
     sta x_vel_px, x ; TODO - Change it so that the snake doesn't move at the start for a time so the player can view the level.
 
     inx
@@ -457,7 +486,6 @@ random:
 
 .proc process_snake
     jsr move_head_px
-    jsr draw_head
 
     ; Determine if the head has reached a new tile
     jsr check_tile_change
@@ -465,26 +493,31 @@ random:
     beq @end
     ;     lda #$00
     ;     sta tick_count ; reset frame counter
-    jsr align_head
-    jsr move_snake
+    jsr align_head_if_turning
+    jsr process_snake_new_tile
     ;     lda level_complete
     ;     beq @end
     ;         jsr process_level_change
     @end:
+    jsr draw_head
     rts
 .endproc
 
 ; Place the head directly onto a tile's coords. Used when changing directions so the head always stays exactly on a tile.
-.proc align_head
+.proc align_head_if_turning
     ; Only align the head when changing directions.
     lda cur_dir
     cmp next_dir
     beq @end
+        ; When moving LEFT and the x changes, x + 1 is closer so we align to that instead.
+        ; example: x changes from 1 to 0 (moving left). Upon the change from 1 to 0, 1 is closer so align x at 1 and set as the new head.
+        ; There's probably a better way to fix this but this seems efficent CPU cycle-wise.
         cmp #LEFT
         bne @not_left
             inc head_x
             jmp @not_up
         @not_left:
+        ; Likewise for UP and Y
         cmp #UP
         bne @not_up
             inc head_y
@@ -598,20 +631,33 @@ rts
 .endproc
 
 .proc draw_head
+    ldx cur_dir
+    ; y = current sprite position
+    ldy head_dir, x
+    ; x = sprite number
     ldx #$0
+
     jsr convert_fixed_point_y_to_unsigned
+    sta temp_y
+    jsr convert_fixed_point_x_to_unsigned
+    sta temp_x
     ;clc
     ;adc #$f ; header adjustment
+    lda temp_y
     sta OAM, x
     inx
-    lda #$00 ; tile number
+    ;lda #$00 ; tile number
+    tya
     sta OAM, x
     inx
     lda #$0 ; attributes
     sta OAM, X
     inx
-    jsr convert_fixed_point_x_to_unsigned
+    lda temp_x
     sta OAM, x
+
+
+
 
     ; clear the other 63 sprites
     @forx:
@@ -632,10 +678,17 @@ rts
 rts
 .endproc
 
-.proc move_snake
+.proc draw_sprite
+
+rts
+.endproc
+
+.proc process_snake_new_tile
     ldx #$0
     @loop:
-    jsr move_snake_on_input
+    jsr adjust_direction
+    jsr calc_velocity
+    jsr move_body_on_input
     ;jsr move_snakex
     inx
     cpx player_count
@@ -643,64 +696,50 @@ rts
     rts
 .endproc
 
-.proc move_snake_on_input
+.proc adjust_direction
     lda cur_dir, x
     sta prev_dir, x
     lda next_dir, x
     sta cur_dir, x
+.endproc
+
+.proc calc_velocity
+    ldy cur_dir
+    lda cur_dir, X
+
+    lda speed_x_dir, y
+    sta x_vel_px
+    lda speed_y_dir, y
+    sta y_vel_px
+
+    rts
+.endproc
+
+.proc move_body_on_input
+
+    lda cur_dir, x
 
     cmp #UP
     bne @notUp
     dec new_y, x
-    lda y_speed
-    clc
-    jsr toTwosCompliment
-    sta y_vel_px
-    ; lda #$0
-    ; ; Do high byte
-    ; adc #$0 ; carry
-    ; jsr toTwosCompliment
-    ; sta y_vel_px
-
-    lda #$0
-    sta x_vel_px
     jmp @buttonEnd
 
     @notUp:
     cmp #DOWN
     bne @notDown
     inc new_y, x
-    lda y_speed
-    sta y_vel_px
-    lda #$0
-    sta x_vel_px
     jmp @buttonEnd
 
     @notDown:
     cmp #LEFT
     bne @notLeft
     dec new_x, x
-    lda x_speed
-    clc
-    jsr toTwosCompliment
-    sta x_vel_px
-    ; ; Do high byte
-    ; lda #$0
-    ; adc #$0 ; carry
-    ; jsr toTwosCompliment
-    ; sta x_vel_px
-    lda #$0
-    sta y_vel_px
     jmp @buttonEnd
 
     @notLeft:
     cmp #RIGHT
     bne @buttonEnd
     inc new_x, x
-    lda x_speed
-    sta x_vel_px
-    lda #$0
-    sta y_vel_px
 
     @buttonEnd:
     rts
@@ -833,14 +872,14 @@ rts
     ; lda #$05 ; head
     ; sta temp_a
     ; Draw new head
-    ldy cur_dir, x
-    lda head_lo, y
-    sta current_low
-    lda head_hi, y
-    sta current_high
-    jsr screen_space_to_ppu_space
-    ;jsr ppu_update_tile_temp
-    jsr place_shape
+    ; ldy cur_dir, x
+    ; lda head_lo, y
+    ; sta current_low
+    ; lda head_hi, y
+    ; sta current_high
+    ; jsr screen_space_to_ppu_space
+    ; ;jsr ppu_update_tile_temp
+    ; jsr place_shape
     ;pla
     ;tax ; restore x (snake index) from stack
     rts
