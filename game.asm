@@ -100,6 +100,7 @@ y_vel_px:       .res 2 ; 42, 43
 ; screen_lo       .res 1 ; 36
 ; screen_hi       .res 1 ; 37
 zp_temp_4:      .res 1 ; 44
+temp_tile:      .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -633,7 +634,8 @@ rts
 .proc draw_head
     ldx cur_dir
     ; y = current sprite position
-    ldy head_dir, x
+    lda head_dir, x
+    sta temp_tile
     ; x = sprite number
     ldx #$0
 
@@ -641,27 +643,44 @@ rts
     sta temp_y
     jsr convert_fixed_point_x_to_unsigned
     sta temp_x
+    jsr draw_sprite
+
+    inc temp_tile
+    lda temp_x
+    clc
+    adc #$08
+    sta temp_x
+    jsr draw_sprite
+
+    lda temp_tile
+    clc
+    adc #$f
+    sta temp_tile
+    lda temp_x
+    sec
+    sbc #$08
+    sta temp_x
+    lda temp_y
+    clc
+    adc #$08
+    sta temp_y
+    jsr draw_sprite
+
+    inc temp_tile
+    lda temp_x
+    clc
+    adc #$08
+    sta temp_x
+    jsr draw_sprite
+
     ;clc
     ;adc #$f ; header adjustment
-    lda temp_y
-    sta OAM, x
-    inx
-    ;lda #$00 ; tile number
-    tya
-    sta OAM, x
-    inx
-    lda #$0 ; attributes
-    sta OAM, X
-    inx
-    lda temp_x
-    sta OAM, x
 
 
 
 
     ; clear the other 63 sprites
     @forx:
-        inx
         lda #$ff ; don't render the sprite, ff is an out of bounds Y value
         sta OAM, X
         inx
@@ -673,13 +692,31 @@ rts
         inx
         lda #$00
         sta OAM, x
-        cpx #$ff
+        inx
+        ;cpx #$ff
     bne @forx
 rts
 .endproc
 
+; Loads an 8x8 sprite to OAM memory
+; IN
+; (temp_x, temp_y) coords
+; temp_a tile
 .proc draw_sprite
-
+    lda temp_y
+    sta OAM, x
+    inx
+    ;lda #$00 ; tile number
+    ;tya
+    lda temp_tile
+    sta OAM, x
+    inx
+    lda #$0 ; attributes
+    sta OAM, X
+    inx
+    lda temp_x
+    sta OAM, x
+    inx
 rts
 .endproc
 
