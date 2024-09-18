@@ -4,7 +4,7 @@
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
 .import readjoy2_safe
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
-.export random_index, random, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
+.export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, place_shape
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
@@ -51,8 +51,8 @@ nmi_count:      .res 1 ; 04
 tick_count:     .res 1 ; 05
 head_x:         .res 2 ; 06, 07 Enable two-player
 head_y:         .res 2 ; 08, 09
-new_x:          .res 2 ; 0a, 0b
-new_y:          .res 2 ; 0c, 0d
+new_x:          .res 2 ; 0a, 0b UNUSED
+new_y:          .res 2 ; 0c, 0d UNUSED
 tail_x:         .res 2 ; 0e, 0f
 tail_y:         .res 2 ; 10, 11
 snake_update:   .res 1 ; 12
@@ -101,10 +101,12 @@ y_vel_px:       .res 2 ; 42, 43
 ; screen_hi       .res 1 ; 37
 zp_temp_4:      .res 1 ; 44
 temp_tile:      .res 1
+prev_head_x:    .res 2
+prev_head_y:    .res 2
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
-screen:     .res 240 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
+screen:     .res 256 ; Mirror of what is in the PPU. The snake can get quite large so we store it in this mirror.
                         ; We sacrifice memory for speed, it takes a while to check collisions on a 100-size snake if not in screen mirror memory.
                      ; The snake is mutable background and collides with itself.
 
@@ -396,8 +398,9 @@ random:
         sta target_size, y
         lda START_X, y
         sta head_x, y
+        sta prev_head_x, y
         sta tail_x, y
-        sta new_x, y
+        ; sta new_x, y
         asl ; Multiply by 16 to get x in pixels
         asl
         asl
@@ -409,10 +412,9 @@ random:
         sta x_sub_px
         lda START_Y, y
         sta head_y, y
+        sta prev_head_y, y
         sta tail_y, y
-        sta new_y, y
-        clc
-        adc #$1 ; header adjustment
+        ; sta new_y, y
         asl ; Multiply by 16 to get y in pixels
         asl
         asl
@@ -437,9 +439,9 @@ random:
     ldx #$0
     @loop:
 
-    lda new_x, x
+    lda START_X, x
     sta temp_x
-    lda new_y, x
+    lda START_Y, x
     sta temp_y
 
     jsr xy_meta_tile_offset
@@ -457,14 +459,14 @@ random:
     ldy #$0
     sta (current_low), y
     ; place head on nmi queue
-    lda #$05
-    sta temp_a
-    lda new_x, x
-    sta head_x, x
-    sta temp_x
-    lda new_y, x
-    sta head_y, x
-    sta temp_y
+    ; lda #$05
+    ; sta temp_a
+    ; lda START_X, x
+    ; sta head_x, x
+    ; sta temp_x
+    ; lda START_Y, x
+    ; sta head_y, x
+    ; sta temp_y
     ; ldy cur_dir, x
     ; lda head_lo, y
     ; sta current_low
@@ -472,8 +474,8 @@ random:
     ; sta current_high
     ; jsr screen_space_to_ppu_space
     ; ;jsr ppu_update_tile_temp
-    ; jsr place_shape
-    inc size, x
+    ;jsr place_shape
+    ;inc size, x
 
     ldy #RIGHT
     lda speed_x_dir, y
@@ -490,6 +492,7 @@ random:
 
     ; Determine if the head has reached a new tile
     jsr check_tile_change
+    lda return
     cmp #$0
     beq @end
     ;     lda #$00
@@ -499,6 +502,10 @@ random:
     ;     lda level_complete
     ;     beq @end
     ;         jsr process_level_change
+    lda head_x
+    sta prev_head_x
+    lda head_y
+    sta prev_head_y
     @end:
     jsr draw_head
     rts
@@ -600,7 +607,6 @@ rts
         sta return
 
 	@end:
-        lda return
         rts
 .endproc
 
@@ -673,12 +679,6 @@ rts
     sta temp_x
     jsr draw_sprite
 
-    ;clc
-    ;adc #$f ; header adjustment
-
-
-
-
     ; clear the other 63 sprites
     @forx:
         lda #$ff ; don't render the sprite, ff is an out of bounds Y value
@@ -725,8 +725,8 @@ rts
     @loop:
     jsr adjust_direction
     jsr calc_velocity
-    jsr move_body_on_input
-    ;jsr move_snakex
+    ;jsr move_body_on_input
+    jsr move_snakex
     inx
     cpx player_count
     bne @loop
@@ -752,35 +752,35 @@ rts
     rts
 .endproc
 
-.proc move_body_on_input
+; .proc move_body_on_input
 
-    lda cur_dir, x
+;     lda prev_dir, x
 
-    cmp #UP
-    bne @notUp
-    dec new_y, x
-    jmp @buttonEnd
+;     cmp #UP
+;     bne @notUp
+;     dec new_y, x
+;     jmp @buttonEnd
 
-    @notUp:
-    cmp #DOWN
-    bne @notDown
-    inc new_y, x
-    jmp @buttonEnd
+;     @notUp:
+;     cmp #DOWN
+;     bne @notDown
+;     inc new_y, x
+;     jmp @buttonEnd
 
-    @notDown:
-    cmp #LEFT
-    bne @notLeft
-    dec new_x, x
-    jmp @buttonEnd
+;     @notDown:
+;     cmp #LEFT
+;     bne @notLeft
+;     dec new_x, x
+;     jmp @buttonEnd
 
-    @notLeft:
-    cmp #RIGHT
-    bne @buttonEnd
-    inc new_x, x
+;     @notLeft:
+;     cmp #RIGHT
+;     bne @buttonEnd
+;     inc new_x, x
 
-    @buttonEnd:
-    rts
-.endproc
+;     @buttonEnd:
+;     rts
+; .endproc
 
 ; Moves one snake while checking for collision
 ; IN
@@ -801,9 +801,11 @@ rts
     ;jsr tile_to_screen_space_xy
     ; Using the temp variable version of the routine so X remains intact
     ; This has the unintended side effect of making indexing cleaner, further simplifying code.
-    lda new_y, x
+    lda prev_head_y, x
+    ;lda head_y, x
     sta temp_y
-    lda new_x, x
+    lda prev_head_x, x
+    ;lda head_x, x
     sta temp_x
     ;jsr tile_to_screen_space_temp
     jsr xy_meta_tile_offset
@@ -841,11 +843,11 @@ rts
 
 
 
-    jsr process_collision_detection
+    ;jsr process_collision_detection
     jsr store_head
     jsr move_head
 
-    jsr process_tail
+    ;jsr process_tail
 	rts
 .endproc
 
@@ -867,7 +869,7 @@ rts
     lda snakes_lo, x
     sta current_low
 
-    lda cur_dir, x ; We just store directions so the tail can follow along
+    lda prev_dir, x ; We just store directions so the tail can follow along
     ldy head_index, x
     sta (current_low), y
     ; Increment to new head
@@ -879,16 +881,15 @@ rts
     sty head_index, x
 
     ; Draw over old head with body
-    lda head_x, x
+    lda prev_head_x, x
     sta temp_x
-    lda head_y, x
+    lda prev_head_y, x
     sta temp_y
     jsr choose_body_metatile
     ; lda #<body_hor_shape
     ; sta current_low
     ; lda #>body_hor_shape
     ; sta current_high
-    jsr screen_space_to_ppu_space
     ;jsr ppu_update_tile_temp
     jsr place_shape
 
@@ -900,12 +901,12 @@ rts
     ;ldy new_y
     ;sty head_y
     ; Record new head
-    lda new_x, x
-    sta head_x, x
-    sta temp_x
-    lda new_y, x
-    sta head_y, x
-    sta temp_y
+    ; lda new_x, x
+    ; sta head_x, x
+    ; sta temp_x
+    ; lda new_y, x
+    ; sta head_y, x
+    ; sta temp_y
     ; lda #$05 ; head
     ; sta temp_a
     ; Draw new head
@@ -923,9 +924,13 @@ rts
 .endproc
 
 .proc choose_body_metatile
+    ldy head_index, x
+    dey
+    dey
 
     ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
-    lda prev_dir, X
+    ;lda prev_dir, X
+    lda (current_low), y
     asl ; double the value to find the correct index in the array
     tay
     lda body_lo, Y
@@ -934,7 +939,10 @@ rts
     lda body_lo, Y
     sta current_high_2
 
-    lda cur_dir, x
+    ldy head_index, x
+    dey
+    lda (current_low), y
+    ;lda cur_dir, x
     asl
     tay
     lda (current_low_2), Y
@@ -1177,7 +1185,6 @@ rts
         sta current_high
         ; lda #$00 ; empty
         ; sta temp_a
-        jsr screen_space_to_ppu_space
         ;jsr ppu_update_tile_temp
         jsr place_shape
 
@@ -1703,17 +1710,6 @@ convert_screen_space_to_screen_memory_stack:
     ldx zp_temp_1 ; Restore original x and y registers
     ldy zp_temp_2
     rts
-
-screen_space_to_ppu_space:
-    inc temp_y
-    ; pha ; store A on stack
-    ; lda temp_y
-    ; clc
-    ; ; Adjust Y down to account for the header
-    ; adc #$02
-    ; sta temp_y
-    ; pla ; Get A from stack
-rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
 ppu_update_tile_temp:

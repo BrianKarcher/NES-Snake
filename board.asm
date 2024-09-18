@@ -5,7 +5,7 @@
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows, place_shape
-.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
+.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -100,19 +100,19 @@ level_complete_message:
 ; 1 = wall
 ;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 top_left:
-.byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0
+.byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0
 
 top_right:
-.byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0
+.byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0
 
 bottom_left:
-.byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0
+.byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0
 
 bottom_right:
-.byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0
+.byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0
 
 color:
-.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0
+.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1
 
 food_header_offset:
     .byte 6, 20
@@ -238,13 +238,7 @@ rts
     tya
     asl
     sta temp_y
-    cpy #$0 ; Are we on the header row?
-    bne @do_body
-        jsr generate_attribute_byte_header
-        jmp @end
-    @do_body:
-        jsr generate_attribute_byte_body
-    @end:
+    jsr generate_attribute_byte_body
     pla ; restore y
     tay
     pla ; restore x
@@ -261,7 +255,6 @@ rts
 ; TODO: Optimize this
 ; One optimization I can do is to start at the bottom-right. This would require less bit-shifts as the bottom-right gradually gets shifted left.
 .proc generate_attribute_byte_body
-    dec temp_y ; adjust for header row
     jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
     
     ldy temp_offset
@@ -296,48 +289,6 @@ rts
 
     iny ; bottom-right
     ldx screen, y ; bottom-left
-    lda color, x
-    asl
-    asl
-    asl
-    asl
-    asl
-    asl
-    ora zp_temp_2
-    sta zp_temp_2
-
-    exit:
-    rts
-.endproc
-
-; Top two tile rows are the header, next two rows are in-game
-.proc generate_attribute_byte_header
-    lda #$0
-    sta temp_y
-    jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
-
-    lda #HEADER_PALETTE ; top-left
-    sta zp_temp_2
-
-    lda #HEADER_PALETTE
-    asl
-    asl
-    ora zp_temp_2 ; top-right
-    sta zp_temp_2
-
-    ldy temp_offset
-
-    ldx screen, y ; top-left
-    lda color, x
-    asl
-    asl
-    asl
-    asl
-    ora zp_temp_2
-    sta zp_temp_2
-
-    iny
-    ldx screen, y ; top-right of screen goes into bottom-right of attribute byte
     lda color, x
     asl
     asl
@@ -443,11 +394,21 @@ place_header_foodx:
 rts
 
 copy_current_low_to_screen:
+    ldx #$0
+    lda #$c
+    @header_loop:
+        sta screen, x
+        inx
+        cpx #$10
+    bne @header_loop
+
+    ldy #$0
     @loop:
-        dey
         lda (current_low), y
-        sta screen, y
-        cpy #$00 ;0
+        sta screen, x
+        iny
+        inx
+        ; cpy #$00 ;0
     bne @loop
 rts
 
@@ -602,7 +563,10 @@ place_food:
     ; sta temp_y
     ; txa
     ; sta temp_x
-    jsr screen_space_to_ppu_space
+    ;jsr screen_space_to_ppu_space
+    
+    ; header adjustment
+    inc temp_y
     jsr place_shape
     ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
     
