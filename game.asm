@@ -117,11 +117,17 @@ dirs:
     .byte UP, DOWN, LEFT, RIGHT
 
 ; The speed in UP, DOWN, LEFT, RIGHT, using two's compliment for UP and LEFT.
+; speed_x_dir:
+;     .byte $0, $0, $EA, $16
+
+; speed_y_dir:
+;     .byte $EA, $16, $0, $0
+
 speed_x_dir:
-    .byte $0, $0, $EA, $16
+    .byte $0, $0, $F8, $08
 
 speed_y_dir:
-    .byte $EA, $16, $0, $0
+    .byte $F8, $08, $0, $0
 
 ; x_speed:
 ;     .byte $16 ; TODO: Turn this into an array so player can choose game speed
@@ -520,16 +526,16 @@ random:
         ; When moving LEFT and the x changes, x + 1 is closer so we align to that instead.
         ; example: x changes from 1 to 0 (moving left). Upon the change from 1 to 0, 1 is closer so align x at 1 and set as the new head.
         ; There's probably a better way to fix this but this seems efficent CPU cycle-wise.
-        cmp #LEFT
-        bne @not_left
-            inc head_x
-            jmp @not_up
-        @not_left:
-        ; Likewise for UP and Y
-        cmp #UP
-        bne @not_up
-            inc head_y
-        @not_up:
+        ; cmp #LEFT
+        ; bne @not_left
+        ;     inc head_x
+        ;     jmp @not_up
+        ; @not_left:
+        ; ; Likewise for UP and Y
+        ; cmp #UP
+        ; bne @not_up
+        ;     inc head_y
+        ; @not_up:
         lda head_x
         asl
         asl
@@ -558,43 +564,51 @@ rts
 
 ; OUT A (1 = changed, 0 = unchanged)
 .proc check_tile_change
-    ; lda cur_dir
-    ; cmp #UP
-    ; bne @not_up
-    ;     jsr @check_y
-    ;     jsr @check_x
-    ;     rts
-    ; @not_up:
-    ; cmp #DOWN
-    ; bne @not_down
-    ;     jmp @check_y
-    ; @not_down:
-    ; cmp #LEFT
-    ; bne @not_left
-    ;     jmp @check_x
-    ; @not_left:
-    ; cmp #RIGHT
-    ; bne @end
-    ;     jmp @check_x
     lda #$0
     sta return
-    @check_y:
+    ; offset the point to check based on direction
+    ; example: If moving left, use the rightmost point of the sprite to check when player has fully crossed into the new tile
+    lda cur_dir
+    cmp #UP
+    bne @not_up
         ; check if y is in a new tile
         jsr convert_fixed_point_y_to_unsigned
+        clc
+        adc #$f ; 15, check bottom pixel
+        jmp @check_y
+     @not_up:
+    cmp #DOWN
+    bne @not_down
+        jsr convert_fixed_point_y_to_unsigned
+        jmp @check_y
+    @not_down:
+    cmp #LEFT
+    bne @not_left
+        jsr convert_fixed_point_x_to_unsigned
+        clc
+        adc #$f ; 15, check right pixel
+        jmp @check_x
+    @not_left:
+    cmp #RIGHT
+    bne @end
+        jsr convert_fixed_point_x_to_unsigned
+        jmp @check_x
+
+    @check_y:
         lsr
         lsr
         lsr
         lsr ; divide by 16
         cmp head_y
-        beq @check_x
+        beq @end
         ; y tile changed
         sta head_y
         lda #$1
         sta return
+        rts
 
     @check_x:
-        ; check if y is in a new tile
-        jsr convert_fixed_point_x_to_unsigned
+        ; check if x is in a new tile
         lsr
         lsr
         lsr
@@ -605,6 +619,7 @@ rts
         sta head_x
         lda #$1
         sta return
+        rts
 
 	@end:
         rts
@@ -847,7 +862,7 @@ rts
     jsr store_head
     jsr move_head
 
-    ;jsr process_tail
+    jsr process_tail
 	rts
 .endproc
 
@@ -923,6 +938,10 @@ rts
     rts
 .endproc
 
+; Chooses the correct metatile for the "neck" of the snake.
+; The neck is one below the head. We need the direction of the tile before the neck, as well as the neck, to determine
+; the metatile.
+; Ex: If the direction before the neck was up, and the neck's dir is right, the tile we need for the neck is up-right
 .proc choose_body_metatile
     ldy head_index, x
     dey
