@@ -564,9 +564,7 @@ place_food:
     ; txa
     ; sta temp_x
     ;jsr screen_space_to_ppu_space
-    
-    ; header adjustment
-    inc temp_y
+
     jsr place_shape
     ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
     
@@ -586,7 +584,8 @@ place_food:
 ; None
 ; OUT
 ; current_x_2 points to the tile in screen space
-; x, y in their registers
+; y = tile offset
+; a = tile id
 find_blank_tile:
     jsr get_random_axis
     ;pha ; Store X onto stack
@@ -597,13 +596,17 @@ find_blank_tile:
     find_y:
     jsr get_random_axis
     cmp #$e ; 14
-    bpl find_y ; Find another y if > 30
+    bpl find_y ; Find another y if > 15
     ; cmp #$00 ; Title area? Find a new y
     ; beq find_y
     ; cmp #$01 ; Title area
     ; beq find_y
     ;sta zp_temp_2 ; store y
     ;pha ; Store y onto stack
+
+    ; header adjustment
+    clc
+    adc #$01
     sta temp_y
     ;tay
     ;jsr tile_to_screen_space_xy
@@ -613,6 +616,8 @@ find_blank_tile:
     ldy temp_offset
     lda screen, Y
     ; TODO Use tile types instead of tile id's
+    ; cmp #$c ; header area
+    ; beq fail
     cmp #$58
     beq fail
     cmp #$b

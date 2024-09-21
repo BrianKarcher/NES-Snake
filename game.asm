@@ -464,24 +464,25 @@ random:
     sta temp_a
     ldy #$0
     sta (current_low), y
+    ; The body exists on the current head tile
     ; place head on nmi queue
     ; lda #$05
     ; sta temp_a
-    ; lda START_X, x
+    lda START_X, x
     ; sta head_x, x
-    ; sta temp_x
-    ; lda START_Y, x
+    sta temp_x
+    lda START_Y, x
     ; sta head_y, x
-    ; sta temp_y
-    ; ldy cur_dir, x
-    ; lda head_lo, y
-    ; sta current_low
-    ; lda head_hi, y
-    ; sta current_high
-    ; jsr screen_space_to_ppu_space
-    ; ;jsr ppu_update_tile_temp
-    ;jsr place_shape
-    ;inc size, x
+    sta temp_y
+    ldy cur_dir, x
+    lda #<body_hor_shape
+    sta current_low
+    lda #>body_hor_shape
+    sta current_high
+    ;jsr screen_space_to_ppu_space
+    ;jsr ppu_update_tile_temp
+    jsr place_shape
+    inc size, x
 
     ldy #RIGHT
     lda speed_x_dir, y
@@ -567,6 +568,7 @@ rts
     lda #$0
     sta return
     ; offset the point to check based on direction
+    ; The pixel to check is in the opposite direction you are moving
     ; example: If moving left, use the rightmost point of the sprite to check when player has fully crossed into the new tile
     lda cur_dir
     cmp #UP
@@ -816,11 +818,11 @@ rts
     ;jsr tile_to_screen_space_xy
     ; Using the temp variable version of the routine so X remains intact
     ; This has the unintended side effect of making indexing cleaner, further simplifying code.
-    lda prev_head_y, x
-    ;lda head_y, x
+    ;lda prev_head_y, x
+    lda head_y, x
     sta temp_y
-    lda prev_head_x, x
-    ;lda head_x, x
+    ;lda prev_head_x, x
+    lda head_x, x
     sta temp_x
     ;jsr tile_to_screen_space_temp
     jsr xy_meta_tile_offset
@@ -890,15 +892,18 @@ rts
     ; Increment to new head
     iny
     ; Store 'h' at the new head since we don't know the direction to its next head yet
-    lda #$a ; h
+    lda cur_dir
+    ;lda #$a ; h
     sta (current_low), y
     ;sta SNAKE, y
     sty head_index, x
 
     ; Draw over old head with body
-    lda prev_head_x, x
+    ;lda prev_head_x, x
+    lda head_x, x
     sta temp_x
-    lda prev_head_y, x
+    ;lda prev_head_y, x
+    lda head_y, x
     sta temp_y
     jsr choose_body_metatile
     ; lda #<body_hor_shape
@@ -945,7 +950,7 @@ rts
 .proc choose_body_metatile
     ldy head_index, x
     dey
-    dey
+    ;dey
 
     ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
     ;lda prev_dir, X
@@ -959,7 +964,7 @@ rts
     sta current_high_2
 
     ldy head_index, x
-    dey
+    ;dey
     lda (current_low), y
     ;lda cur_dir, x
     asl
