@@ -423,9 +423,9 @@ draw_board_meta_tile:
     txa ; store x
     pha
     ; TODO Replace ppu_update_tile_temp calls to ppu_update_tile to improve performance and decrease stack depth
-    ; inc temp_y
+    ;dec temp_y
     jsr xy_meta_tile_offset
-    ; dec temp_y
+    ;inc temp_y
     ; clc
     ; tya
     ; adc #$20
@@ -513,10 +513,12 @@ get_board_tile:
     ;jsr xy_meta_tile_offset
     ;ldy temp_offset
     ; locate board
-    ; lda temp_offset
-    ; sec
-    ; sbc #$20
-    ; sta zp_temp_1
+
+    ; screen to board offset - we are working in metatiles so subtract $10 (16)
+    lda temp_offset
+    sec
+    sbc #$10
+    sta zp_temp_1
 
     lda current_level
     asl
@@ -527,7 +529,7 @@ get_board_tile:
     inx
     lda boards, x
     sta current_high
-    ldy temp_offset
+    ldy zp_temp_1
     lda (current_low), y
 
 
