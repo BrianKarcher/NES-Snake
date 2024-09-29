@@ -14,6 +14,7 @@ START_Y         = $0502
 ;COLOR_WHITE     = #$20
 LEVEL_CHANGE    = $01
 
+
 UP = 0
 DOWN = 1
 LEFT = 2

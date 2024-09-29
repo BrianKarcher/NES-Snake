@@ -8,7 +8,7 @@ forest_palette_0:
     .byte $0f, $0f, $3d, $2d ; grays
     .byte $0f, $1c, $27, $30 ; snake
     .byte $2a, $1c, $27, $30 ; snake ; sprites
-    .byte $0f, $1c, $27, $30 ; snake
+    .byte $0f, $25, $1a, $39 ; snake toungue
     .byte $0f, $1c, $27, $30 ; snake
     .byte $0f, $1c, $27, $30 ; snake
 

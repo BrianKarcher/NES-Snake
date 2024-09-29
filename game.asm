@@ -2,10 +2,10 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
-.import readjoy2_safe
+.import readjoy2_safe, draw_board_meta_tile
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, place_shape
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, place_shape, ppu_update_byte, coord_quarter
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -663,6 +663,8 @@ rts
     ldx #$0
 
     jsr convert_fixed_point_y_to_unsigned
+    clc
+    adc #$ff ; subtract one to correct an NES PPU issue where all sprites are drawn on the next scanline
     sta temp_y
     jsr convert_fixed_point_x_to_unsigned
     sta temp_x
@@ -870,7 +872,7 @@ rts
 
 ; Store the head in screen space memory
 .proc store_head
-    lda #$a ; h
+    lda #$a ; the snake index
     ldy temp_offset
     sta screen, y
     rts
@@ -1095,6 +1097,87 @@ rts
 rts
 .endproc
 
+.proc process_tail
+    ; Move tail?
+    lda size, x
+    cmp target_size, x
+    bne grow
+
+        ;ldx tail_x
+        ;ldy tail_y
+        lda tail_x, x
+        sta temp_x
+        lda tail_y, x
+        ; sec
+        ; sbc #$01
+        sta temp_y
+        jsr draw_board_meta_tile
+        ; jsr xy_meta_tile_offset
+        ;jsr tile_to_screen_space_temp
+        ;stx current_high_2
+        ;sty screen
+        ; ldy temp_offset
+        ; Erase the tail from the screen copy
+        ; lda #$00 ; TODO - Reload the background at this level's position instead
+        ; sta screen, y
+
+
+        ; Remove the current tail via nmi queue
+        ;lda #$00 ; h
+        ;ldx tail_x
+        ;ldy tail_y
+        ; lda tail_x, x
+        ; sta temp_x
+        ; lda tail_y, x
+        ; sta temp_y
+        ; lda #<blank_shape
+        ; sta current_low
+        ; lda #>blank_shape
+        ; sta current_high
+        ; lda #$00 ; empty
+        ; sta temp_a
+        ;jsr ppu_update_tile_temp
+        ; jsr place_shape
+
+        ; We are at target size, move the tail along
+
+        ; Move the tail
+        lda snakes_hi, x
+        sta current_high
+        lda snakes_lo, x
+        sta current_low
+        lda #$0
+
+        ldy tail_index, x
+        inc tail_index, x
+        lda (current_low), Y
+        cmp #UP
+        bne @not_up
+            dec tail_y, x
+            jmp tail_done
+        @not_up:
+        cmp #DOWN
+        bne @not_down
+            inc tail_y, x
+            jmp tail_done
+        @not_down:
+        cmp #LEFT
+        bne @not_left
+            dec tail_x, x
+            jmp tail_done
+        @not_left:
+            inc tail_x, x
+            jmp tail_done
+        jmp tail_done
+    grow:
+        inc size, x
+        jmp tail_end
+
+    tail_done:
+    tail_end:
+    rts
+.endproc
+
 ; IN
 ; temp_x, temp_y
 ; current_low, current_high stores the shape address
@@ -1170,84 +1253,6 @@ rts
     
     pla ; restore x
     tax
-    rts
-.endproc
-
-.proc process_tail
-    ; Move tail?
-    lda size, x
-    cmp target_size, x
-    bne grow
-
-        ;ldx tail_x
-        ;ldy tail_y
-        lda tail_x, x
-        sta temp_x
-        lda tail_y, x
-        sta temp_y
-        jsr xy_meta_tile_offset
-        ;jsr tile_to_screen_space_temp
-        ;stx current_high_2
-        ;sty screen
-        ldy temp_offset
-        ; Erase the tail from the screen copy
-        lda #$00 ; TODO - Reload the background at this level's position instead
-        sta screen, y
-
-
-        ; Remove the current tail via nmi queue
-        ;lda #$00 ; h
-        ;ldx tail_x
-        ;ldy tail_y
-        lda tail_x, x
-        sta temp_x
-        lda tail_y, x
-        sta temp_y
-        lda #<blank_shape
-        sta current_low
-        lda #>blank_shape
-        sta current_high
-        ; lda #$00 ; empty
-        ; sta temp_a
-        ;jsr ppu_update_tile_temp
-        jsr place_shape
-
-        ; We are at target size, move the tail along
-
-        ; Move the tail
-        lda snakes_hi, x
-        sta current_high
-        lda snakes_lo, x
-        sta current_low
-        lda #$0
-
-        ldy tail_index, x
-        inc tail_index, x
-        lda (current_low), Y
-        cmp #UP
-        bne @not_up
-            dec tail_y, x
-            jmp tail_done
-        @not_up:
-        cmp #DOWN
-        bne @not_down
-            inc tail_y, x
-            jmp tail_done
-        @not_down:
-        cmp #LEFT
-        bne @not_left
-            dec tail_x, x
-            jmp tail_done
-        @not_left:
-            inc tail_x, x
-            jmp tail_done
-        jmp tail_done
-    grow:
-        inc size, x
-        jmp tail_end
-
-    tail_done:
-    tail_end:
     rts
 .endproc
 

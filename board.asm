@@ -4,8 +4,9 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
-.import xy_meta_tile_offset, screen_rows, place_shape
-.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte
+.import xy_meta_tile_offset, screen_rows, place_shape, ppu_update_byte, coord_quarter
+.export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
+.export draw_board_meta_tile
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -410,6 +411,126 @@ copy_current_low_to_screen:
         inx
         ; cpy #$00 ;0
     bne @loop
+rts
+
+; Stores and draws a 2x2 metatile for display from the board in ROM, sets attributes
+; Use when rendering is ON, it will update on the next nmi
+; Used to reset a metatile to their original contents
+; IN
+; temp_x (metatile location)
+; temp_y
+draw_board_meta_tile:
+    txa ; store x
+    pha
+    ; TODO Replace ppu_update_tile_temp calls to ppu_update_tile to improve performance and decrease stack depth
+    ; inc temp_y
+    jsr xy_meta_tile_offset
+    ; dec temp_y
+    ; clc
+    ; tya
+    ; adc #$20
+    ; tay
+    ; TODO Find a better way to do this, it's kind of hacky
+    ; lda temp_offset
+    ; sec
+    ; sbc #$20
+    ; sta temp_offset
+    jsr get_board_tile
+    ldy temp_offset
+    ; Restore the original metatile onto the screen in RAM
+    sta screen, y
+    tay
+
+    ; Convert from metatile-space to tile space
+    lda temp_x
+    asl ; multiply by 2
+    sta temp_x
+    lda temp_y
+    asl
+    sta temp_y
+
+    lda top_left, y
+    sta temp_a
+    jsr ppu_update_tile_temp
+    inc temp_x
+    lda top_right, y
+    sta temp_a
+    jsr ppu_update_tile_temp
+    dec temp_x
+    inc temp_y
+    lda bottom_left, y
+    sta temp_a
+    jsr ppu_update_tile_temp
+    inc temp_x
+    lda bottom_right, y
+    sta temp_a
+    jsr ppu_update_tile_temp
+
+    ; Update the attribute byte
+    
+    ldx temp_x
+    ldy temp_y
+    ; lda temp_x ; convert x and y back into metatile-coords
+    ; lsr
+    ; tax
+    ; lda temp_y
+    ; lsr
+    ; tay
+    ; Create the attribute byte replacement
+    ; convert from tile-space to attribute space (divide x and y by 4)
+    jsr coord_quarter
+    stx zp_temp_1
+    jsr generate_attribute_byte ; byte gets stored in zp_temp_2
+
+    lda #$23
+    tax ; high byte
+    ;sta PPU_ADDRESS
+    txa
+    ;sta temp_x
+    tya
+    asl ; find the low byte memory space, y*8 + x + c0
+    asl
+    asl
+    clc
+    ;sty temp_x
+    adc zp_temp_1
+    clc
+    adc #$c0 ; attribute table offset
+    ;ora #$c0
+    tay
+    lda zp_temp_2
+    jsr ppu_update_byte
+
+    pla ; restore x
+    tax
+    ; TODO FINISH THIS NOW!!!!!!!!
+rts
+
+; Gets the tile for the currently loaded board by temp_offset
+; IN temp_offset
+; OUT a = tile index
+get_board_tile:
+    ;jsr xy_meta_tile_offset
+    ;ldy temp_offset
+    ; locate board
+    ; lda temp_offset
+    ; sec
+    ; sbc #$20
+    ; sta zp_temp_1
+
+    lda current_level
+    asl
+    tax
+
+    lda boards, x
+    sta current_low
+    inx
+    lda boards, x
+    sta current_high
+    ldy temp_offset
+    lda (current_low), y
+
+
 rts
 
 board_to_ppu_load:
