@@ -177,63 +177,43 @@ snakes_lo:
 
 ; I'm lazy so assuming that all sprites are stored in a perfect rectangle in CHR-ROM
 ; Store the top-left tile for each entity
+; The beginning tile for each head dir
 head_dir:
     .byte $02, $06, $04, $00
 
 ; body_hor_shape:
 ;     .byte $05, $05, $15, $15
 
-body_vert_shape:
-    .byte $80, $81, $80, $81
-
 blank_shape:
     .byte $00, $00, $00, $00
 
-; same as left down
-body_up_right_shape:
-    .byte $02, $05, $80, $00
-
-body_up_left_shape:
-    .byte $05, $03, $01, $81
-
-; same as down_left
-body_right_up_shape:
-    .byte $11, $81, $15, $13
-
-body_right_down_shape:
-    .byte $05, $03, $01, $81
-
-; same as left up
-body_down_right_shape:
-    .byte $80, $10, $12, $15
-
 ; This is the start of a double-array. The first array index is the previous direction. The second index is the current direction.
 ; This determines which body shape to pick.
-; TODO - Consider splitting the high and low bytes into separate arrays to remove the two bit shifts.
+; TODO - Consider splitting the high and low bytes into separate arrays to remove the bit shifts.
 body_lo:
     .byte <body_up_lo, >body_up_lo, <body_down_lo, >body_down_lo, <body_left_lo, >body_left_lo, <body_right_lo, >body_right_lo ;, <body_down_hi ;, LEFT, RIGHT
 
 body_up_lo:
-    .byte <body_vert_shape
-    .byte <body_vert_shape
-    .byte <body_up_left_shape
-    .byte <body_up_right_shape
+    .byte BODY_VERT_SHAPE
+    .byte BODY_VERT_SHAPE
+    .byte BODY_UP_LEFT_SHAPE
+    .byte BODY_UP_RIGHT_SHAPE
 
 body_down_lo:
-    .byte <body_vert_shape
-    .byte <body_vert_shape
-    .byte <body_right_up_shape
-    .byte <body_down_right_shape
+    .byte BODY_VERT_SHAPE
+    .byte BODY_VERT_SHAPE
+    .byte BODY_RIGHT_UP_SHAPE
+    .byte BODY_DOWN_RIGHT_SHAPE
 
 body_left_lo:
-    .byte <body_down_right_shape
-    .byte <body_up_right_shape
+    .byte BODY_DOWN_RIGHT_SHAPE
+    .byte BODY_UP_RIGHT_SHAPE
     .byte BODY_HOR_SHAPE
     .byte BODY_HOR_SHAPE
 
 body_right_lo:
-    .byte <body_right_up_shape
-    .byte <body_right_down_shape
+    .byte BODY_RIGHT_UP_SHAPE
+    .byte BODY_RIGHT_DOWN_SHAPE
     .byte BODY_HOR_SHAPE
     .byte BODY_HOR_SHAPE
     

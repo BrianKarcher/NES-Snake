@@ -71,8 +71,8 @@ startys2:
 
 
 header:
-    .byte 0, 0, 0, 0, 0, 0, 0, 0, "S", "N", "A", "K", "E", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .byte 0, "F", "o", "o", "d", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "F", "o", "o", "d", 0, 0, 0, "L", "e", "v", "e", "l", 0, 0, 0, 0, 0
+    .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "S", "N", "A", "K", "E", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff
+    .byte $ff, "F", "o", "o", "d", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "F", "o", "o", "d", $ff, $ff, $ff, "L", "e", "v", "e", "l", $ff, $ff, $ff, $ff, $ff
 
 level_complete_message:
     .byte "@@@@@@@@@@@@@@@@@@@@@", 1
@@ -103,19 +103,33 @@ level_complete_message:
 
 
 top_left:
-.byte $90, $92, $b0, 0, $05
+.byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80
 
 top_right:
-.byte $91, $93, $b1, 0, $05
+.byte $91, $93, $b1, $ff, $05, $81, $05, $03, $81, $03, $10
 
 bottom_left:
-.byte $a0, $a2, $c0, 0, $15
+.byte $a0, $a2, $c0, $ff, $15, $80, $80, $01, $15, $01, $12
 
 bottom_right:
-.byte $a1, $a3, $c1, 0, $15
+.byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15
 
 color:
-.byte 1, 2, 3, 0, 3
+.byte 1, 2, 3, 0, 3, 3, 3, 3, 3, 3
+
+; same as left up
+body_down_right_shape:
+    .byte $80, $10, $12, $15
+
+; body_right_down_shape:
+;     .byte $05, $03, $01, $81
+
+; same as down_left
+; body_right_up_shape:
+;     .byte $11, $81, $15, $13
+
+; body_up_left_shape:
+;     .byte $05, $03, $01, $81
 
 ; body_hor_shape:
 ;     .byte $05, $05, $15, $15

@@ -19,6 +19,15 @@ MOUNTAIN = 1
 FOOD = 2
 HEADER = 3
 BODY_HOR_SHAPE = 4
+BODY_VERT_SHAPE = 5
+; same as left down
+BODY_UP_RIGHT_SHAPE = 6
+BODY_UP_LEFT_SHAPE = 7
+; same as down_left
+BODY_RIGHT_UP_SHAPE = 8
+BODY_RIGHT_DOWN_SHAPE = 9
+; same as left up
+BODY_DOWN_RIGHT_SHAPE = 10
 
 UP = 0
 DOWN = 1
