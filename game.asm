@@ -2,10 +2,10 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
-.import readjoy2_safe, draw_board_meta_tile
+.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, place_shape, ppu_update_byte, coord_quarter
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_place_shape, ppu_update_byte, coord_quarter
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -180,8 +180,8 @@ snakes_lo:
 head_dir:
     .byte $02, $06, $04, $00
 
-body_hor_shape:
-    .byte $05, $05, $15, $15
+; body_hor_shape:
+;     .byte $05, $05, $15, $15
 
 body_vert_shape:
     .byte $80, $81, $80, $81
@@ -214,28 +214,28 @@ body_lo:
     .byte <body_up_lo, >body_up_lo, <body_down_lo, >body_down_lo, <body_left_lo, >body_left_lo, <body_right_lo, >body_right_lo ;, <body_down_hi ;, LEFT, RIGHT
 
 body_up_lo:
-    .byte <body_vert_shape, >body_vert_shape
-    .byte <body_vert_shape, >body_vert_shape
-    .byte <body_up_left_shape, >body_up_left_shape
-    .byte <body_up_right_shape, >body_up_right_shape
+    .byte <body_vert_shape
+    .byte <body_vert_shape
+    .byte <body_up_left_shape
+    .byte <body_up_right_shape
 
 body_down_lo:
-    .byte <body_vert_shape, >body_vert_shape
-    .byte <body_vert_shape, >body_vert_shape
-    .byte <body_right_up_shape, >body_right_up_shape
-    .byte <body_down_right_shape, >body_down_right_shape
+    .byte <body_vert_shape
+    .byte <body_vert_shape
+    .byte <body_right_up_shape
+    .byte <body_down_right_shape
 
 body_left_lo:
-    .byte <body_down_right_shape, >body_down_right_shape
-    .byte <body_up_right_shape, >body_up_right_shape
-    .byte <body_hor_shape, >body_hor_shape
-    .byte <body_hor_shape, >body_hor_shape
+    .byte <body_down_right_shape
+    .byte <body_up_right_shape
+    .byte BODY_HOR_SHAPE
+    .byte BODY_HOR_SHAPE
 
 body_right_lo:
-    .byte <body_right_up_shape, >body_right_up_shape
-    .byte <body_right_down_shape, >body_right_down_shape
-    .byte <body_hor_shape, >body_hor_shape
-    .byte <body_hor_shape, >body_hor_shape
+    .byte <body_right_up_shape
+    .byte <body_right_down_shape
+    .byte BODY_HOR_SHAPE
+    .byte BODY_HOR_SHAPE
     
 ; body_hi:
 ;     .byte <body_up_hi, >body_up_hi ;, <body_down_hi ;, LEFT, RIGHT
@@ -460,7 +460,7 @@ random:
     lda snakes_lo, x
     sta current_low
 
-    lda #$a ; h
+    lda #$4 ; h
     sta temp_a
     ldy #$0
     sta (current_low), y
@@ -474,14 +474,17 @@ random:
     lda START_Y, x
     ; sta head_y, x
     sta temp_y
-    ldy cur_dir, x
-    lda #<body_hor_shape
-    sta current_low
-    lda #>body_hor_shape
-    sta current_high
+    ; ldy cur_dir, x
+    
+    ldy #BODY_HOR_SHAPE
+    jsr ppu_place_board_meta_tile
+    ; lda #<body_hor_shape
+    ; sta current_low
+    ; lda #>body_hor_shape
+    ; sta current_high
     ;jsr screen_space_to_ppu_space
     ;jsr ppu_update_tile_temp
-    jsr place_shape
+    ; jsr ppu_place_shape
     inc size, x
 
     ldy #RIGHT
@@ -872,7 +875,7 @@ rts
 
 ; Store the head in screen space memory
 .proc store_head
-    lda #$a ; the snake index
+    lda #$4 ; the snake index
     ldy temp_offset
     sta screen, y
     rts
@@ -913,7 +916,9 @@ rts
     ; lda #>body_hor_shape
     ; sta current_high
     ;jsr ppu_update_tile_temp
-    jsr place_shape
+    ;jsr ppu_place_shape
+    tay
+    jsr ppu_place_board_meta_tile
 
     ;txa
     ;pha ; store x (snake index) on stack
@@ -949,6 +954,8 @@ rts
 ; The neck is one below the head. We need the direction of the tile before the neck, as well as the neck, to determine
 ; the metatile.
 ; Ex: If the direction before the neck was up, and the neck's dir is right, the tile we need for the neck is up-right
+; OUT
+; A = tile index
 .proc choose_body_metatile
     ldy head_index, x
     dey
@@ -969,14 +976,16 @@ rts
     ;dey
     lda (current_low), y
     ;lda cur_dir, x
-    asl
+    ; asl
     tay
     lda (current_low_2), Y
-    sta current_low
-    iny
-    lda (current_low_2), Y
-    sta current_high
+    ; sta current_low
+    ; iny
+    ; lda (current_low_2), Y
+    ; sta current_high
 
+    ; ldy #$0
+    ; lda (current_low), y
 
     ; Repeat for the double-array to find the prev_dir -> curr_dir combo
 
@@ -1111,7 +1120,7 @@ rts
         ; sec
         ; sbc #$01
         sta temp_y
-        jsr draw_board_meta_tile
+        jsr restore_board_meta_tile
         ; jsr xy_meta_tile_offset
         ;jsr tile_to_screen_space_temp
         ;stx current_high_2
@@ -1181,7 +1190,7 @@ rts
 ; IN
 ; temp_x, temp_y
 ; current_low, current_high stores the shape address
-.proc place_shape ; places a 2x2 shape
+.proc ppu_place_shape ; places a 2x2 shape
     txa ; store x
     pha
     lda temp_x

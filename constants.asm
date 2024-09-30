@@ -14,6 +14,11 @@ START_Y         = $0502
 ;COLOR_WHITE     = #$20
 LEVEL_CHANGE    = $01
 
+GRASS = 0
+MOUNTAIN = 1
+FOOD = 2
+HEADER = 3
+BODY_HOR_SHAPE = 4
 
 UP = 0
 DOWN = 1

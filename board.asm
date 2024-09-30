@@ -4,9 +4,9 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
-.import xy_meta_tile_offset, screen_rows, place_shape, ppu_update_byte, coord_quarter
+.import xy_meta_tile_offset, screen_rows, ppu_place_shape, ppu_update_byte, coord_quarter
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
-.export draw_board_meta_tile
+.export restore_board_meta_tile, ppu_place_board_meta_tile
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -26,20 +26,20 @@ board0:
 .byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
 
 board1:
-.byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 board2:
 .byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
@@ -100,26 +100,43 @@ level_complete_message:
 ; 0 = empty
 ; 1 = wall
 ;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+
+
 top_left:
-.byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0
+.byte $90, $92, $b0, 0, $05
 
 top_right:
-.byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0
+.byte $91, $93, $b1, 0, $05
 
 bottom_left:
-.byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0
+.byte $a0, $a2, $c0, 0, $15
 
 bottom_right:
-.byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0
+.byte $a1, $a3, $c1, 0, $15
 
 color:
-.byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1
+.byte 1, 2, 3, 0, 3
+
+; body_hor_shape:
+;     .byte $05, $05, $15, $15
+
+; top_left:
+; .byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0
+
+; top_right:
+; .byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0
+
+; bottom_left:
+; .byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0
+
+; bottom_right:
+; .byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0
+
+; color:
+; .byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1
 
 food_header_offset:
     .byte 6, 20
-
-food_shape:
-    .byte $b0, $b1, $c0, $c1
 
 ; Make sure PPU rendering is OFF before calling this
 draw_board:
@@ -395,8 +412,8 @@ place_header_foodx:
 rts
 
 copy_current_low_to_screen:
-    ldx #$0
-    lda #$c
+    ldx #$00
+    lda #HEADER
     @header_loop:
         sta screen, x
         inx
@@ -413,13 +430,7 @@ copy_current_low_to_screen:
     bne @loop
 rts
 
-; Stores and draws a 2x2 metatile for display from the board in ROM, sets attributes
-; Use when rendering is ON, it will update on the next nmi
-; Used to reset a metatile to their original contents
-; IN
-; temp_x (metatile location)
-; temp_y
-draw_board_meta_tile:
+restore_board_meta_tile:
     txa ; store x
     pha
     ; TODO Replace ppu_update_tile_temp calls to ppu_update_tile to improve performance and decrease stack depth
@@ -440,7 +451,23 @@ draw_board_meta_tile:
     ; Restore the original metatile onto the screen in RAM
     sta screen, y
     tay
+    
+    jsr ppu_place_board_meta_tile
 
+    pla ; restore x
+    tax
+rts
+
+; Stores and draws a 2x2 metatile for display from the board in ROM, sets attributes
+; Use when rendering is ON, it will update on the next nmi
+; Used to reset a metatile to their original contents
+; IN
+; temp_x (metatile location)
+; temp_y
+; y = tile index
+ppu_place_board_meta_tile:
+    txa ; store X on stack
+    pha
     ; Convert from metatile-space to tile space
     lda temp_x
     asl ; multiply by 2
@@ -501,9 +528,9 @@ draw_board_meta_tile:
     lda zp_temp_2
     jsr ppu_update_byte
 
-    pla ; restore x
-    tax
     ; TODO FINISH THIS NOW!!!!!!!!
+    pla
+    tax ; restore X from stack
 rts
 
 ; Gets the tile for the currently loaded board by temp_offset
@@ -670,16 +697,16 @@ rts
 
 place_food:
     jsr find_blank_tile
-    lda #$b
+    lda #$2
     sta screen, y
     ; txa ; temporarily store X on stack
     ; pha
     ; tya ; temporarily store Y on stack
     ; pha
-    lda #<food_shape
-    sta current_low
-    lda #>food_shape
-    sta current_high
+    ; lda #<food_shape
+    ; sta current_low
+    ; lda #>food_shape
+    ; sta current_high
     ; tya
     ; ; clc
     ; ; adc #$02 ; align with screen
@@ -688,7 +715,10 @@ place_food:
     ; sta temp_x
     ;jsr screen_space_to_ppu_space
 
-    jsr place_shape
+    ldy temp_y
+
+    jsr ppu_place_board_meta_tile
+    ; jsr ppu_place_shape
     ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
     
     ; pla ; Pull Y off the stack
