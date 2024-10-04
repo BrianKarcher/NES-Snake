@@ -115,11 +115,11 @@ bottom_right:
 .byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15
 
 color:
-.byte 1, 2, 3, 0, 3, 3, 3, 3, 3, 3
+.byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3
 
 ; same as left up
-body_down_right_shape:
-    .byte $80, $10, $12, $15
+; body_down_right_shape:
+;     .byte $80, $10, $12, $15
 
 ; body_right_down_shape:
 ;     .byte $05, $03, $01, $81
@@ -711,7 +711,8 @@ rts
 
 place_food:
     jsr find_blank_tile
-    lda #$2
+    lda #FOOD
+    sta temp_a
     sta screen, y
     ; txa ; temporarily store X on stack
     ; pha
@@ -729,8 +730,8 @@ place_food:
     ; sta temp_x
     ;jsr screen_space_to_ppu_space
 
-    ldy temp_y
-
+    ;ldy temp_y
+    ldy #FOOD
     jsr ppu_place_board_meta_tile
     ; jsr ppu_place_shape
     ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
