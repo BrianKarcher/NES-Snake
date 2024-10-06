@@ -103,6 +103,7 @@ zp_temp_4:      .res 1 ; 44
 temp_tile:      .res 1
 prev_head_x:    .res 2
 prev_head_y:    .res 2
+snake_head_offset: .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -431,6 +432,7 @@ random:
     sta temp_y
 
     jsr xy_meta_tile_offset
+    sta temp_offset
     ;jsr tile_to_screen_space_temp
 
     jsr store_head
@@ -811,7 +813,7 @@ rts
     sta temp_x
     ;jsr tile_to_screen_space_temp
     jsr xy_meta_tile_offset
-
+    sta snake_head_offset
     ; lda #<screen
     ; sta current_low_2
     ; lda #>screen
@@ -840,7 +842,7 @@ rts
     ;pla
     ;tax ; restore x from stack
     ; FIX AND RESTORE THIS
-    ; jsr process_collision_detection
+    jsr process_collision_detection
 
 
 
@@ -856,7 +858,7 @@ rts
 ; Store the head in screen space memory
 .proc store_head
     lda #$4 ; the snake index
-    ldy temp_offset
+    ldy snake_head_offset
     sta screen, y
     rts
 .endproc
@@ -1256,7 +1258,7 @@ rts
 .proc process_collision_detection
     ldy #$00
     ; Check tile ran into
-    ldy temp_offset
+    ldy snake_head_offset
     lda screen, y
     cmp #$a
     bne no_self
@@ -1266,7 +1268,7 @@ rts
     bne no_wall
         jmp inf_loop
     no_wall:
-    cmp #$b ; food!
+    cmp #FOOD ; food!
     bne @no_coll
         ;jmp inf_loop
         lda target_size, x
@@ -1579,6 +1581,8 @@ ppu_address_tile:
 	sta $2006 ; low bits of Y + X
 	rts
 
+; OUT
+; A = tile offset
 ; Works ONLY on Metatiles (2x2 tiles)
 .proc xy_meta_tile_offset
     ; Perform calculation y * width(16) + x

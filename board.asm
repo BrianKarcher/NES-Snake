@@ -71,7 +71,7 @@ startys2:
 
 
 header:
-    .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "S", "N", "A", "K", "E", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff
+    .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "S", "N", "A", "K", "E", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff
     .byte $ff, "F", "o", "o", "d", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "F", "o", "o", "d", $ff, $ff, $ff, "L", "e", "v", "e", "l", $ff, $ff, $ff, $ff, $ff
 
 level_complete_message:
@@ -93,14 +93,13 @@ level_complete_message:
 ; Tile tables
 ; Storing our levels in the full 32x30 screen size wastes far too much space - 960 bytes per level!!! We are 
 ; dividing our tiles into 2x2 segments similar to how Megaman 2 and M.C. Kids works.
+
 ; Each segment is represented by a series of arrays instead of a struct because this is easier for the 6502 to work with.
 ; Reference https://games.greggman.com/game/programming_m_c__kids/ section Tilesets
 ; This allows me to create 4x the number of levels.
-; I should build a level editor for this...
-; 0 = empty
-; 1 = wall
-;     0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 
+; Each index in the following arrays represent one factor of the metatile. From each of the four tiles to the color in the palette.
+; Naturally, this caps our metatiles at 256
 
 top_left:
 .byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80
@@ -116,38 +115,6 @@ bottom_right:
 
 color:
 .byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3
-
-; same as left up
-; body_down_right_shape:
-;     .byte $80, $10, $12, $15
-
-; body_right_down_shape:
-;     .byte $05, $03, $01, $81
-
-; same as down_left
-; body_right_up_shape:
-;     .byte $11, $81, $15, $13
-
-; body_up_left_shape:
-;     .byte $05, $03, $01, $81
-
-; body_hor_shape:
-;     .byte $05, $05, $15, $15
-
-; top_left:
-; .byte $90, $92, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0
-
-; top_right:
-; .byte $91, $93, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0
-
-; bottom_left:
-; .byte $a0, $a2, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0
-
-; bottom_right:
-; .byte $a1, $a3, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0
-
-; color:
-; .byte 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1
 
 food_header_offset:
     .byte 6, 20
@@ -289,7 +256,8 @@ rts
 .proc generate_attribute_byte_body
     jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
     
-    ldy temp_offset
+    ;ldy temp_offset
+    tay ; transfer offset to Y
     ldx screen, y ; top-left
     lda color, x
     sta zp_temp_2
@@ -450,6 +418,7 @@ restore_board_meta_tile:
     ; TODO Replace ppu_update_tile_temp calls to ppu_update_tile to improve performance and decrease stack depth
     ;dec temp_y
     jsr xy_meta_tile_offset
+    sta temp_offset ; store offset in temp_offset
     ;inc temp_y
     ; clc
     ; tya
@@ -781,7 +750,8 @@ find_blank_tile:
     jsr xy_meta_tile_offset
 
     ; Check if the tile is free
-    ldy temp_offset
+    ;ldy temp_offset
+    tay ; transfer offset to Y
     lda screen, Y
     ; TODO Use tile types instead of tile id's
     ; cmp #$c ; header area
