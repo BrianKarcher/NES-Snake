@@ -6,7 +6,7 @@
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows, ppu_update_byte, coord_quarter
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
-.export restore_board_meta_tile, ppu_place_board_meta_tile
+.export restore_board_meta_tile, ppu_place_board_meta_tile, attributes
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -115,6 +115,9 @@ bottom_right:
 
 color:
 .byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3
+
+attributes:
+.byte $00, $01, $02, $00, $01, $01, $01, $01, $01, $01, $01
 
 food_header_offset:
     .byte 6, 20

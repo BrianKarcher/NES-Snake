@@ -29,6 +29,10 @@ BODY_RIGHT_DOWN_SHAPE = 9
 ; same as left up
 BODY_DOWN_RIGHT_SHAPE = 10
 
+NONE = 0
+DEAD = 1
+T_FOOD = 2
+
 SCREEN_SNAKE = 4 ; What to store the snake as in screen memory
 
 UP = 0

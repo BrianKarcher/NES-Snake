@@ -2,7 +2,7 @@
 .include "constants.asm"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
-.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile
+.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter
@@ -1049,14 +1049,17 @@ rts
     ; Check tile ran into
     ldy snake_head_offset
     lda screen, y
-    cmp #SCREEN_SNAKE
+    tay
+    lda attributes, Y
+
+    cmp #NONE
+    bne @not_none
+        rts
+    @not_none:
+    cmp #DEAD
     bne no_self
         jmp inf_loop
     no_self:
-    cmp #$58
-    bne no_wall
-        jmp inf_loop
-    no_wall:
     cmp #FOOD ; food!
     bne @no_coll
         ;jmp inf_loop
