@@ -5,7 +5,7 @@
 .import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_place_shape, ppu_update_byte, coord_quarter
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -104,6 +104,8 @@ temp_tile:      .res 1
 prev_head_x:    .res 2
 prev_head_y:    .res 2
 snake_head_offset: .res 1
+snake_ll_lo:     .res 1
+snake_ll_hi:     .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -432,20 +434,20 @@ random:
     sta temp_y
 
     jsr xy_meta_tile_offset
-    sta temp_offset
+    sta snake_head_offset
     ;jsr tile_to_screen_space_temp
 
     jsr store_head
 
     lda snakes_hi, x
-    sta current_high
+    sta snake_ll_hi
     lda snakes_lo, x
-    sta current_low
+    sta snake_ll_lo
 
     lda #$4 ; h
     sta temp_a
     ldy #$0
-    sta (current_low), y
+    sta (snake_ll_lo), y
     ; The body exists on the current head tile
     ; place head on nmi queue
     ; lda #$05
@@ -460,13 +462,7 @@ random:
     
     ldy #BODY_HOR_SHAPE
     jsr ppu_place_board_meta_tile
-    ; lda #<body_hor_shape
-    ; sta current_low
-    ; lda #>body_hor_shape
-    ; sta current_high
-    ;jsr screen_space_to_ppu_space
-    ;jsr ppu_update_tile_temp
-    ; jsr ppu_place_shape
+
     inc size, x
 
     ldy #RIGHT
@@ -857,7 +853,7 @@ rts
 
 ; Store the head in screen space memory
 .proc store_head
-    lda #$4 ; the snake index
+    lda #SCREEN_SNAKE ; the snake index
     ldy snake_head_offset
     sta screen, y
     rts
@@ -869,19 +865,19 @@ rts
     ; Mark the current head with the direction to the new head
 
     lda snakes_hi, x
-    sta current_high
+    sta snake_ll_hi
     lda snakes_lo, x
-    sta current_low
+    sta snake_ll_lo
 
     lda prev_dir, x ; We just store directions so the tail can follow along
     ldy head_index, x
-    sta (current_low), y
+    sta (snake_ll_lo), y
     ; Increment to new head
     iny
     ; Store 'h' at the new head since we don't know the direction to its next head yet
     lda cur_dir
     ;lda #$a ; h
-    sta (current_low), y
+    sta (snake_ll_lo), y
     ;sta SNAKE, y
     sty head_index, x
 
@@ -893,12 +889,6 @@ rts
     lda head_y, x
     sta temp_y
     jsr choose_body_metatile
-    ; lda #<body_hor_shape
-    ; sta current_low
-    ; lda #>body_hor_shape
-    ; sta current_high
-    ;jsr ppu_update_tile_temp
-    ;jsr ppu_place_shape
     tay
     jsr ppu_place_board_meta_tile
 
@@ -945,7 +935,7 @@ rts
 
     ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
     ;lda prev_dir, X
-    lda (current_low), y
+    lda (snake_ll_lo), y
     asl ; double the value to find the correct index in the array
     tay
     lda body_lo, Y
@@ -956,135 +946,12 @@ rts
 
     ldy head_index, x
     ;dey
-    lda (current_low), y
+    lda (snake_ll_lo), y
     ;lda cur_dir, x
     ; asl
     tay
     lda (current_low_2), Y
-    ; sta current_low
-    ; iny
-    ; lda (current_low_2), Y
-    ; sta current_high
 
-    ; ldy #$0
-    ; lda (current_low), y
-
-    ; Repeat for the double-array to find the prev_dir -> curr_dir combo
-
-
-; body_lo:
-;     .byte <body_up_lo, >body_up_lo ;, <body_down_hi ;, LEFT, RIGHT
-
-; body_2_lo:
-;     .byte <body_vert_shape, >body_vert_shape
-;     .byte <body_vert_shape, >body_vert_shape
-;     .byte <body_up_left_shape, >body_up_left_shape
-;     .byte <body_up_right_shape, >body_up_right_shape
-    ; lda prev_dir, X
-    ; cmp #UP
-    ; ; This is easy to do in other languages with a double array. We can hack that if needed, but for now I'm using a bunch of if statements
-    ; ; And honestly, the "double array" would probably be slower than what I am doing here.
-    ; bne @not_up
-    ;     lda cur_dir, X
-    ;     cmp #DOWN
-    ;     bne :+
-    ;         lda #<body_vert_shape
-    ;         sta current_low
-    ;         lda #>body_vert_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #UP
-    ;     bne :+
-    ;         lda #<body_vert_shape
-    ;         sta current_low
-    ;         lda #>body_vert_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #RIGHT
-    ;     bne :+
-    ;         lda #<body_up_right_shape
-    ;         sta current_low
-    ;         lda #>body_up_right_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #LEFT
-    ;     bne @not_up
-    ;         lda #<body_up_left_shape
-    ;         sta current_low
-    ;         lda #>body_up_left_shape
-    ;         sta current_high
-    ;         jmp @exit
-
-    ; @not_up:
-    ; cmp #RIGHT
-    ; bne @not_right
-    ;     lda cur_dir, x
-    ;     cmp #LEFT
-    ;     bne :+
-    ;         lda #<body_hor_shape
-    ;         sta current_low
-    ;         lda #>body_hor_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #RIGHT
-    ;     bne :+
-    ;         lda #<body_hor_shape
-    ;         sta current_low
-    ;         lda #>body_hor_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #UP
-    ;     bne :+
-    ;         lda #<body_right_up_shape
-    ;         sta current_low
-    ;         lda #>body_right_up_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #DOWN
-    ;     bne @not_right
-    ;         lda #<body_right_down_shape
-    ;         sta current_low
-    ;         lda #>body_right_down_shape
-    ;         sta current_high
-    ;         jmp @exit
-
-    ; @not_right:
-    ; cmp #DOWN
-    ; bne @not_down
-    ;     lda cur_dir, x
-    ;     cmp #LEFT
-    ;     bne :+
-    ;         lda #<body_right_up_shape
-    ;         sta current_low
-    ;         lda #>body_right_up_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #RIGHT
-    ;     bne :+
-    ;         lda #<body_down_right_shape
-    ;         sta current_low
-    ;         lda #>body_down_right_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-    ;     cmp #UP
-    ;     bne :+
-    ;         lda #<body_vert_shape
-    ;         sta current_low
-    ;         lda #>body_vert_shape
-    ;         sta current_high
-    ;         jmp @exit
-    ;     :
-
-    ; @not_down:
-    ; @exit:
 rts
 .endproc
 
@@ -1133,15 +1000,15 @@ rts
         ; We are at target size, move the tail along
 
         ; Move the tail
-        lda snakes_hi, x
-        sta current_high
-        lda snakes_lo, x
-        sta current_low
+        ; lda snakes_hi, x
+        ; sta current_high
+        ; lda snakes_lo, x
+        ; sta current_low
         lda #$0
 
         ldy tail_index, x
         inc tail_index, x
-        lda (current_low), Y
+        lda (snake_ll_lo), Y
         cmp #UP
         bne @not_up
             dec tail_y, x
@@ -1169,84 +1036,6 @@ rts
     rts
 .endproc
 
-; IN
-; temp_x, temp_y
-; current_low, current_high stores the shape address
-.proc ppu_place_shape ; places a 2x2 shape
-    txa ; store x
-    pha
-    lda temp_x
-    asl
-    sta temp_x
-    lda temp_y
-    asl
-    sta temp_y
-    ; This might be easier than doing a nested loop
-    ; 1,1
-    ldy #$0 ; shape offset
-    lda (current_low), y
-    sta temp_a
-    jsr ppu_update_tile_temp
-    ; 2,1
-    iny
-    lda (current_low), y
-    sta temp_a
-    inc temp_x
-    jsr ppu_update_tile_temp
-    ; 1,2
-    iny
-    lda (current_low), y
-    sta temp_a
-    dec temp_x
-    inc temp_y
-    jsr ppu_update_tile_temp
-    ; 2,2
-    iny
-    lda (current_low), y
-    sta temp_a
-    inc temp_x
-    jsr ppu_update_tile_temp
-
-    ; txa
-    ; pha ; store x
-    ldx temp_x
-    ldy temp_y
-    ; lda temp_x ; convert x and y back into metatile-coords
-    ; lsr
-    ; tax
-    ; lda temp_y
-    ; lsr
-    ; tay
-    ; Create the attribute byte replacement
-    ; convert from nmi-space to attribute space (divide x and y by 2)
-    jsr coord_quarter
-    stx zp_temp_1
-    jsr generate_attribute_byte ; byte gets stored in zp_temp_2
-    
-    lda #$23
-    tax ; high byte
-    ;sta PPU_ADDRESS
-    txa
-    ;sta temp_x
-    tya
-    asl ; find the low byte memory space, y*8 + x + c0
-    asl
-    asl
-    clc
-    ;sty temp_x
-    adc zp_temp_1
-    clc
-    adc #$c0
-    ;ora #$c0
-    tay
-    lda zp_temp_2
-    jsr ppu_update_byte
-    
-    pla ; restore x
-    tax
-    rts
-.endproc
-
 ; Processes collision detection for the new head position
 ; IN
 ; current_high_2 and current_low_2 are the head position in screen space
@@ -1260,7 +1049,7 @@ rts
     ; Check tile ran into
     ldy snake_head_offset
     lda screen, y
-    cmp #$a
+    cmp #SCREEN_SNAKE
     bne no_self
         jmp inf_loop
     no_self:

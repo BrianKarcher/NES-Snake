@@ -4,7 +4,7 @@
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
 .importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
-.import xy_meta_tile_offset, screen_rows, ppu_place_shape, ppu_update_byte, coord_quarter
+.import xy_meta_tile_offset, screen_rows, ppu_update_byte, coord_quarter
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
 .export restore_board_meta_tile, ppu_place_board_meta_tile
 
@@ -702,7 +702,6 @@ place_food:
     ;ldy temp_y
     ldy #FOOD
     jsr ppu_place_board_meta_tile
-    ; jsr ppu_place_shape
     ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
     
     ; pla ; Pull Y off the stack
