@@ -106,6 +106,7 @@ prev_head_y:    .res 2
 snake_head_offset: .res 1
 snake_ll_lo:     .res 1
 snake_ll_hi:     .res 1
+timer:           .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -334,6 +335,10 @@ sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
 
+jsr draw_head
+jsr ppu_update
+jsr level_start_wait
+
 .proc game
     @loop:
         inc random_index
@@ -366,6 +371,22 @@ sta $4010  ; enable DMC IRQs
     jsr init_place_snake
 rts
 .endproc
+
+level_start_wait:
+    lda #$0
+    sta timer
+    lda tick_count
+    sta zp_temp_1
+    dec zp_temp_1
+    @loop:
+        lda tick_count
+        cmp zp_temp_1
+        bne @loop
+        inc timer
+        lda timer
+        cmp #$ff
+        bne @loop
+rts
 
 random:
     .byte $4d,$41,$bb,$56,$86,$2f,$ae,$f3,$93,$56,$f3,$89,$4c,$e7,$d6,$f5,$60,$ac,$29,$fc,$3f,$0d,$16,$fd,$c5,$c5,$40,$bc,$95,$a7,$d8,$4f,$e2,$f0,$77,$ed,$f3
