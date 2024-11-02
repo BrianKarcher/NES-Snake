@@ -5,7 +5,8 @@
 .import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
-.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter
+.export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter, print_ptr
+.export window_x, window_y, temp_i
 ; .segment "HEADER"
 ; 	.byte "NES",26, 2,1, 0,0
 
@@ -107,6 +108,16 @@ snake_head_offset: .res 1
 snake_ll_lo:     .res 1
 snake_ll_hi:     .res 1
 timer:           .res 1
+print_ptr:       .res 2
+window_width:   .res 1
+window_height:  .res 1
+window_x:       .res 1
+window_y:       .res 1
+meta_x:         .res 1
+meta_y:         .res 1
+meta_i:         .res 1
+tile:           .res 4 ; Used when we find the four tiles in a metatile
+temp_i:         .res 1
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -346,15 +357,19 @@ jsr level_start_wait
         jsr readjoy2_safe
         jsr process_input
 		jsr process_snake
+        lda level_complete
+        beq @no_level_change
+            jsr process_level_change
+        @no_level_change:
 		jsr ppu_update
 	jmp @loop
 .endproc
 
 .proc init_game
-    lda #$01
+    lda #START_LEVEL
     sta current_level
     ; TODO player_count and snake_speed to be in-game user-selected values
-    lda #$1
+    lda #PLAYER_COUNT
     sta player_count
     ; lda #$10
     ; sta snake_speed
@@ -375,16 +390,12 @@ rts
 level_start_wait:
     lda #$0
     sta timer
-    lda tick_count
-    sta zp_temp_1
-    dec zp_temp_1
     @loop:
-        lda tick_count
-        cmp zp_temp_1
+        jsr ppu_update
         bne @loop
         inc timer
         lda timer
-        cmp #$ff
+        cmp #$50
         bne @loop
 rts
 
@@ -508,9 +519,6 @@ random:
     ;     sta tick_count ; reset frame counter
     jsr align_head_if_turning
     jsr process_snake_new_tile
-    ;     lda level_complete
-    ;     beq @end
-    ;         jsr process_level_change
     lda head_x
     sta prev_head_x
     lda head_y
@@ -1111,6 +1119,10 @@ check_level_change:
 rts
 
 process_level_change:
+    ;jsr draw_head
+    ;jsr ppu_update
+    ;jsr level_start_wait
+
     jsr print_level_end_message
     jsr ppu_update
     jsr inf_loop
@@ -1547,6 +1559,7 @@ convert_screen_space_to_screen_memory_stack:
     rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
+; This is useful because ppu_update_tile destroys register values while this subroutine retains them.
 ppu_update_tile_temp:
     pha ; store A on stack
     txa

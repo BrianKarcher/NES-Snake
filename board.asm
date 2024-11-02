@@ -2,7 +2,8 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
-.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset
+.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset, print_ptr, window_x, window_y
+; .importzp meta_x, meta_y, meta_i
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows, ppu_update_byte, coord_quarter
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
@@ -102,19 +103,19 @@ level_complete_message:
 ; Naturally, this caps our metatiles at 256
 
 top_left:
-.byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80
+.byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80, $00
 
 top_right:
-.byte $91, $93, $b1, $ff, $05, $81, $05, $03, $81, $03, $10
+.byte $91, $93, $b1, $ff, $05, $81, $05, $03, $81, $03, $10, $15
 
 bottom_left:
-.byte $a0, $a2, $c0, $ff, $15, $80, $80, $01, $15, $01, $12
+.byte $a0, $a2, $c0, $ff, $15, $80, $80, $01, $15, $01, $12, $81
 
 bottom_right:
-.byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15
+.byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15, $ff
 
 color:
-.byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3
+.byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3, 2
 
 attributes:
 .byte $00, $01, $02, $00, $01, $01, $01, $01, $01, $01, $01
@@ -436,8 +437,8 @@ restore_board_meta_tile:
     ldy temp_offset
     ; Restore the original metatile onto the screen in RAM
     sta screen, y
-    tay
-    
+    ;tay
+    sta temp_i
     jsr ppu_place_board_meta_tile
 
     pla ; restore x
@@ -450,22 +451,30 @@ rts
 ; IN
 ; temp_x (metatile location)
 ; temp_y
-; y = tile index
+; temp_i = tile index
+; This is typically called inside of a loop, so the pass-in params are variables instead of registers
+; Also retaining the x and y registers because of the loop scenario
 ppu_place_board_meta_tile:
-    txa ; store X on stack
-    pha
+    tya
+    pha ; store Y on stack
+    txa
+    pha ; store X on stack
     ; Convert from metatile-space to tile space
     lda temp_x
     asl ; multiply by 2
     sta temp_x
+    ;tax
     lda temp_y
     asl
+    ;tay
     sta temp_y
+    ldy temp_i
 
     lda top_left, y
     sta temp_a
     jsr ppu_update_tile_temp
     inc temp_x
+    ;inx
     lda top_right, y
     sta temp_a
     jsr ppu_update_tile_temp
@@ -514,9 +523,10 @@ ppu_place_board_meta_tile:
     lda zp_temp_2
     jsr ppu_update_byte
 
-    ; TODO FINISH THIS NOW!!!!!!!!
     pla
     tax ; restore X from stack
+    pla
+    tay ; restore Y from stack
 rts
 
 ; Gets the tile for the currently loaded board by temp_offset
@@ -802,12 +812,43 @@ print_level_end_message:
     lda #$d ; 13
     sta temp_y
     lda #<level_complete_message
-    sta current_low
+    sta print_ptr
     lda #>level_complete_message
-    sta current_high
+    sta print_ptr + 1
     ;jsr ppu_off
     jsr print_text
     ;jsr ppu_on
+rts
+
+; IN
+; temp_x
+; temp_y
+; window_width
+; window_height
+; MUST BE CALLED WHEN PPU RENDERING IS OFF!
+print_window:
+
+
+    ; window top
+    ldx window_x
+    ldy window_y
+
+    stx temp_x
+    sty temp_y
+    lda #WINDOW_TOPLEFT
+    sta temp_a
+    jsr ppu_place_board_meta_tile
+    inx
+    @forx:
+
+        inx
+        cpx window_width
+        bne @forx
+        
+    ; window middle
+
+    ; window bottom
+
 rts
 
 ; Prints text to the screen. Text will appear on the next NMI update.
@@ -822,23 +863,24 @@ print_text:
     lda temp_x
     sta zp_temp_3 ; Record x for carriage return
     ldy #$0
-    loop:
-        lda (current_low), y
-        beq done ; 0 = null character, end
+    @loop:
+        lda (print_ptr), y
+        sta temp_a
+        beq @done ; 0 = null character, end
         cmp #$01
-        bne skip_new_line
+        bne @skip_new_line
             jsr ppu_update
             iny ; don't print the new line character
             ; Do carriage return
             inc temp_y
             lda zp_temp_3
             sta temp_x
-            lda (current_low), y
-        skip_new_line:
-        sta temp_a
+            lda (print_ptr), y
+            sta temp_a
+        @skip_new_line:
         jsr ppu_update_tile_temp
         iny
         inc temp_x
-        jmp loop
-    done:
+        jmp @loop
+    @done:
 rts
