@@ -109,10 +109,10 @@ snake_ll_lo:     .res 1
 snake_ll_hi:     .res 1
 timer:           .res 1
 print_ptr:       .res 2
-window_width:   .res 1
-window_height:  .res 1
-window_x:       .res 1
-window_y:       .res 1
+window_right:    .res 1
+window_bottom:   .res 1
+window_left:     .res 1
+window_top:      .res 1
 meta_x:         .res 1
 meta_y:         .res 1
 meta_i:         .res 1
@@ -1557,6 +1557,28 @@ convert_screen_space_to_screen_memory_stack:
     ldx zp_temp_1 ; Restore original x and y registers
     ldy zp_temp_2
     rts
+
+; ppu_update_tile_reg: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
+; This is useful because ppu_update_tile destroys register values while this subroutine retains them.
+; IN
+; A = tile
+; X = x
+; Y = y
+ppu_update_tile_reg:
+    pha ; store A on stack
+    txa
+    pha ; store X on stack
+    tya
+    pha ; store Y on stack
+
+    jsr ppu_update_tile
+
+    pla ; Get Y from stack
+    tay
+    pla ; Get X from stack
+    tax
+    pla ; Get A from stack
+rts
 
 ; ppu_update_tile: can be used with rendering on, sets the tile at temp vars X/Y to temp var A next time you call ppu_update
 ; This is useful because ppu_update_tile destroys register values while this subroutine retains them.

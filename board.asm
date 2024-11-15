@@ -449,6 +449,106 @@ rts
 ; Use when rendering is ON, it will update on the next nmi
 ; Used to reset a metatile to their original contents
 ; IN
+; X = x (metatile location)
+; Y = y (see above)
+; A = tile index
+; This is typically called inside of a loop, so the pass-in params are variables instead of registers
+; Also retaining the x and y registers because of the loop scenario
+ppu_place_board_meta_tile_reg:
+    pha ; store A on stack
+    sta temp_i
+    tya
+    sta temp_y
+    pha ; store Y on stack
+    txa
+    pha ; store X on stack
+
+    ; load the four tiles
+    ldy temp_i
+    lda top_left, y
+    sta tile, 0
+    lda top_right, y
+    sta tile, 1
+    lda bottom_left, y
+    sta tile, 2
+    lda bottom_right, y
+    sta tile, 3
+    ; restore Y
+    ldy temp_y
+
+    ; Convert from metatile-space to tile space
+    txa
+    asl ; multiply by 2
+    tax
+    ;tax
+    tya
+    asl
+    ;tay
+    tay
+
+    ; top_left
+    lda tile, 0
+    jsr ppu_update_tile_reg
+    inx
+    ; top_right
+    lda tile, 1
+    jsr ppu_update_tile_reg
+    dex
+    iny
+    ; bottom_left
+    lda tile, 2
+    jsr ppu_update_tile_reg
+    inx
+    ; bottom_right
+    lda tile, 3
+    jsr ppu_update_tile_reg
+
+    ; Update the attribute byte
+    
+    ; dex
+    ; dey
+    ; lda temp_x ; convert x and y back into metatile-coords
+    ; lsr
+    ; tax
+    ; lda temp_y
+    ; lsr
+    ; tay
+    ; Create the attribute byte replacement
+    ; convert from tile-space to attribute space (divide x and y by 4)
+    jsr coord_quarter
+    stx zp_temp_1
+    jsr generate_attribute_byte ; byte gets stored in zp_temp_2
+
+    lda #$23
+    tax ; high byte
+    ;sta PPU_ADDRESS
+    txa
+    ;sta temp_x
+    tya
+    asl ; find the low byte memory space, y*8 + x + c0
+    asl
+    asl
+    clc
+    ;sty temp_x
+    adc zp_temp_1
+    clc
+    adc #$c0 ; attribute table offset
+    ;ora #$c0
+    tay
+    lda zp_temp_2
+    jsr ppu_update_byte
+
+    pla
+    tax ; restore X from stack
+    pla
+    tay ; restore Y from stack
+    pla ; restore A from stack
+rts
+
+; Stores and draws a 2x2 metatile for display from the board in ROM, sets attributes
+; Use when rendering is ON, it will update on the next nmi
+; Used to reset a metatile to their original contents
+; IN
 ; temp_x (metatile location)
 ; temp_y
 ; temp_i = tile index
@@ -821,11 +921,11 @@ print_level_end_message:
 rts
 
 ; IN
-; temp_x
-; temp_y
+; window_x
+; window_y
 ; window_width
 ; window_height
-; MUST BE CALLED WHEN PPU RENDERING IS OFF!
+; MUST BE CALLED WHEN PPU RENDERING IS OFF! - maybe not
 print_window:
 
 
@@ -833,21 +933,27 @@ print_window:
     ldx window_x
     ldy window_y
 
-    stx temp_x
-    sty temp_y
     lda #WINDOW_TOPLEFT
-    sta temp_a
-    jsr ppu_place_board_meta_tile
+    jsr ppu_place_board_meta_tile_reg
     inx
+    lda #WINDOW_TOPMIDDLE
     @forx:
-
         inx
+        jsr ppu_place_board_meta_tile_reg
         cpx window_width
-        bne @forx
-        
+    bmi @forx
+    lda #WINDOW_TOPMIDDLE
+    jsr ppu_place_board_meta_tile_reg
+    jsr ppu_update
     ; window middle
 
     ; window bottom
+
+rts
+
+print_window_top:
+
+
 
 rts
 
