@@ -77,19 +77,10 @@ header:
 
 level_complete_message:
     .byte "@@@@@@@@@@@@@@@@@@@@@", 1
-;level_complete_message1:
     .byte "@                   @", 1
-;level_complete_message2:
     .byte "@  Level Complete!  @", 1
-;level_complete_message3:
     .byte "@                   @", 1
-;level_complete_message4:
     .byte "@@@@@@@@@@@@@@@@@@@@@", 0
-
-;level:
-;    .byte "Level", $1A
-;food:
-;    .byte "Food", $1A
 
 ; Tile tables
 ; Storing our levels in the full 32x30 screen size wastes far too much space - 960 bytes per level!!! We are 
@@ -153,11 +144,9 @@ load_board_to_nt:
     sta current_high
 
     ; It's easier to load it into the ppu memory first
-    ;jsr ppu_load
     jsr header_to_ppu_load
     jsr board_to_ppu_load
 
-    ;jsr ppu_to_screen_space
     ldy #$f0
     jsr copy_current_low_to_screen
     jsr attribute_table_load
@@ -169,15 +158,6 @@ rts
     sta PPU_ADDRESS
     lda #$c0
     sta PPU_ADDRESS
-
-    ; ldx #$0 ; Do header, which includes header and the top row of the screen
-    ; ldy #$0
-    ; forx_header:
-    ;     jsr generate_attribute_byte_header
-    ;     sta PPU_DATA
-    ;     inx
-    ;     cpx #$8
-    ; bne forx_header
 
     ldy #$0
     ; Loop through the attribute table, which is 8x8
@@ -194,39 +174,8 @@ rts
         cpy #$8
     bne fory
 
-    ; We do the last 8 bytes here
     rts
 .endproc
-
-; .proc attribute_table_load
-;     jsr clear_attribute_table
-
-;     lda #$23
-;     sta PPU_ADDRESS
-;     lda #$c0
-;     sta PPU_ADDRESS 
-;     ; We do the first 60 bytes here
-;     lda #$0
-;     sta temp_y
-;     fory:
-;         ldy temp_y
-;         lda screen_rows, y
-;         sta zp_temp_1
-;         iny
-;         sta screen_rows, y
-;         sta zp_temp_2
-;         ldx screen_rows, y
-;         ldy #$0 ; metatile offset (this is the X-coord!)
-;         forx:
-;             lda #$0
-;             ; One attribute byte is made up of four metatiles. Each metatile color is two bits.
-
-;             cpy #$3c
-;             bne forx
-
-;     ; We do the last 8 bytes here
-;     rts
-; .endproc
 
 ; TODO: THIS IS TOO SLOW, FIX NOW!
 .proc generate_attribute_byte
@@ -260,7 +209,6 @@ rts
 .proc generate_attribute_byte_body
     jsr xy_meta_tile_offset ; get screen offset for the top-left metatile
     
-    ;ldy temp_offset
     tay ; transfer offset to Y
     ldx screen, y ; top-left
     lda color, x
@@ -307,63 +255,11 @@ rts
     rts
 .endproc
 
-; .proc clear_attribute_table
-;     lda #$23
-;     sta PPU_ADDRESS
-;     lda #$c0
-;     sta PPU_ADDRESS
-
-;     ; clear the attribute table
-;     ldy #$0
-;     lda #$0
-;     fory:
-;         sta PPU_DATA
-;         iny
-;         cpy #$40 ; 64
-;         bne fory
-;     rts
-; .endproc
-
-; tile_map_to_screen:
-;     ldx #$0
-;     ldy #$0
-
-;     ; This transfers from ppu memory to screen memory
-;     ; x and y are flip flopped because indirect indexing forces us to use y :(
-;     fory:
-;     ldy #$0
-;     forx:
-;     ; loop:
-;     ; Transfer the current memory location to the PPU
-;     lda (current_low), y
-;     sta screen, y ; CPU screen memory
-;     sta PPU_DATA ; PPU memory
-;     ; Increment the address
-;     iny
-;     jmp checkexit
-;     noexit:
-;     cpy #$00 ; page flip?
-;     bne forx
-
-;     inc current_high
-;     inc current_high_2
-;     inx
-;     cpx #$1e ; 30
-;     bne fory
-
-;     checkexit:
-;     cpy #$c0
-;     bne noexit
-;     cpx #$03
-;     bne noexit
-; rts
-
 header_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
     sta PPU_ADDRESS
-    ;ldx #$0
     ldy #$0
     @fory:
         ; This is just a memory span, no need to loop x
@@ -412,7 +308,6 @@ copy_current_low_to_screen:
         sta screen, x
         iny
         inx
-        ; cpy #$00 ;0
     bne @loop
 rts
 
@@ -420,24 +315,12 @@ restore_board_meta_tile:
     txa ; store x
     pha
     ; TODO Replace ppu_update_tile_temp calls to ppu_update_tile to improve performance and decrease stack depth
-    ;dec temp_y
     jsr xy_meta_tile_offset
     sta temp_offset ; store offset in temp_offset
-    ;inc temp_y
-    ; clc
-    ; tya
-    ; adc #$20
-    ; tay
-    ; TODO Find a better way to do this, it's kind of hacky
-    ; lda temp_offset
-    ; sec
-    ; sbc #$20
-    ; sta temp_offset
     jsr get_board_tile
     ldy temp_offset
     ; Restore the original metatile onto the screen in RAM
     sta screen, y
-    ;tay
     sta temp_i
     jsr ppu_place_board_meta_tile
 
@@ -480,10 +363,8 @@ ppu_place_board_meta_tile_reg:
     txa
     asl ; multiply by 2
     tax
-    ;tax
     tya
     asl
-    ;tay
     tay
 
     ; top_left
@@ -503,16 +384,6 @@ ppu_place_board_meta_tile_reg:
     lda tile, 3
     jsr ppu_update_tile_reg
 
-    ; Update the attribute byte
-    
-    ; dex
-    ; dey
-    ; lda temp_x ; convert x and y back into metatile-coords
-    ; lsr
-    ; tax
-    ; lda temp_y
-    ; lsr
-    ; tay
     ; Create the attribute byte replacement
     ; convert from tile-space to attribute space (divide x and y by 4)
     jsr coord_quarter
@@ -521,15 +392,12 @@ ppu_place_board_meta_tile_reg:
 
     lda #$23
     tax ; high byte
-    ;sta PPU_ADDRESS
     txa
-    ;sta temp_x
     tya
     asl ; find the low byte memory space, y*8 + x + c0
     asl
     asl
     clc
-    ;sty temp_x
     adc zp_temp_1
     clc
     adc #$c0 ; attribute table offset
@@ -563,10 +431,8 @@ ppu_place_board_meta_tile:
     lda temp_x
     asl ; multiply by 2
     sta temp_x
-    ;tax
     lda temp_y
     asl
-    ;tay
     sta temp_y
     ldy temp_i
 
@@ -574,7 +440,6 @@ ppu_place_board_meta_tile:
     sta temp_a
     jsr ppu_update_tile_temp
     inc temp_x
-    ;inx
     lda top_right, y
     sta temp_a
     jsr ppu_update_tile_temp
@@ -592,12 +457,7 @@ ppu_place_board_meta_tile:
     
     ldx temp_x
     ldy temp_y
-    ; lda temp_x ; convert x and y back into metatile-coords
-    ; lsr
-    ; tax
-    ; lda temp_y
-    ; lsr
-    ; tay
+
     ; Create the attribute byte replacement
     ; convert from tile-space to attribute space (divide x and y by 4)
     jsr coord_quarter
@@ -606,15 +466,12 @@ ppu_place_board_meta_tile:
 
     lda #$23
     tax ; high byte
-    ;sta PPU_ADDRESS
     txa
-    ;sta temp_x
     tya
     asl ; find the low byte memory space, y*8 + x + c0
     asl
     asl
     clc
-    ;sty temp_x
     adc zp_temp_1
     clc
     adc #$c0 ; attribute table offset
@@ -633,10 +490,6 @@ rts
 ; IN temp_offset
 ; OUT a = tile index
 get_board_tile:
-    ;jsr xy_meta_tile_offset
-    ;ldy temp_offset
-    ; locate board
-
     ; screen to board offset - we are working in metatiles so subtract $10 (16)
     lda temp_offset
     sec
@@ -703,10 +556,8 @@ board_to_ppu_load:
             lda (current_low), y
             tax
             lda bottom_left, x
-            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             lda bottom_right, x
-            ;jsr tile_convert
             sta PPU_DATA ; PPU memory
             
             ; Increment the address
@@ -714,7 +565,6 @@ board_to_ppu_load:
             cpy zp_temp_2 ; 16
         bne @forx2
 
-        ;inx
         lda zp_temp_1
         clc
         adc #$10
@@ -733,53 +583,6 @@ board_to_ppu_load:
     sta PPU_SCROLL
 rts
 
-; Convert tiles from the ppu to screen space
-; ppu_to_screen_space:
-;     lda #>NT0
-;     sta PPU_ADDRESS
-;     lda #<NT0
-;     clc
-;     adc #$40 ; skip the title area
-;     sta PPU_ADDRESS
-
-;     ; Load the buffer
-;     lda PPU_DATA
-
-;     ldx #$0
-;     ldy #$0
-
-;     ;This transfers from ppu memory to screen memory
-;     ;x and y are flip flopped because indirect indexing forces us to use y :(
-;     fory:
-;         ldy #$0
-;         forx:
-;             ; loop:
-;             ; Transfer the current memory from the PPU to the screen space
-;             lda PPU_DATA ; PPU memory
-;             sta (current_low), y
-;             ;sta screen, y ; CPU screen memory
-
-;             ; Increment the address
-;             iny
-;             jmp checkexit
-;         noexit:
-;         cpy #$00 ; page flip?
-;         bne forx
-
-;         inc current_high
-;         ;inc current_high_2
-;     inx
-;     cpx #$1e ; 30
-;     bne fory
-
-;     checkexit:
-;     cpy #$c0
-;     bne noexit
-;     cpx #$03
-;     bne noexit
-;     ; Done transfering
-; rts
-
 ; Convert a tile from an abstracted value to a themed 
 tile_convert:
     cmp #$1
@@ -796,37 +599,10 @@ place_food:
     lda #FOOD
     sta temp_a
     sta screen, y
-    ; txa ; temporarily store X on stack
-    ; pha
-    ; tya ; temporarily store Y on stack
-    ; pha
-    ; lda #<food_shape
-    ; sta current_low
-    ; lda #>food_shape
-    ; sta current_high
-    ; tya
-    ; ; clc
-    ; ; adc #$02 ; align with screen
-    ; sta temp_y
-    ; txa
-    ; sta temp_x
-    ;jsr screen_space_to_ppu_space
 
-    ;ldy temp_y
     ldy #FOOD
-    jsr ppu_place_board_meta_tile
-    ;jsr ppu_update_tile_temp ; Place in PPU queue before we start destroying the y register
-    
-    ; pla ; Pull Y off the stack
-    ; tay
-    ; pla ; Pull X off the stack
-    ; tax
-
-    ;jsr tile_to_screen_space_xy
-    ;jsr xy_meta_tile_offset
-    ;ldy temp_offset
-    
-    rts
+    jsr ppu_place_board_meta_tile    
+rts
 
 ; Find a blank tile
 ; IN
@@ -837,55 +613,30 @@ place_food:
 ; a = tile id
 find_blank_tile:
     jsr get_random_axis
-    ;pha ; Store X onto stack
-    ;sta zp_temp_1 ; store x
-    ;pha ; store x in stack
-    ;tax
     sta temp_x
     find_y:
     jsr get_random_axis
     cmp #$e ; 14
     bpl find_y ; Find another y if > 15
-    ; cmp #$00 ; Title area? Find a new y
-    ; beq find_y
-    ; cmp #$01 ; Title area
-    ; beq find_y
-    ;sta zp_temp_2 ; store y
-    ;pha ; Store y onto stack
 
     ; header adjustment
     clc
     adc #$01
     sta temp_y
-    ;tay
-    ;jsr tile_to_screen_space_xy
     jsr xy_meta_tile_offset
 
     ; Check if the tile is free
-    ;ldy temp_offset
     tay ; transfer offset to Y
     lda screen, Y
     ; TODO Use tile types instead of tile id's
-    ; cmp #$c ; header area
-    ; beq fail
     cmp #$58
     beq fail
     cmp #$b
     beq fail
     cmp #$a ; Cannot place on top of snake
     beq fail
-    ;pla ; pull Y from stack
-    ;tay
-    ;ldx zp_temp_1 ; transfer x to x register
-    ;tax
-    ;pla ; pull X from stack
-    ;tax
-    ;ldy zp_temp_2 ; transfer y to y register
-    ;tay
     rts
     fail:
-    ;pla ; Pull X from stack
-    ;pla ; Pull Y from stack
     jmp find_blank_tile
 
 ; Get a random tile on an axis (x or y)
@@ -896,8 +647,6 @@ find_blank_tile:
 get_random_axis:
     inc random_index
     ldy random_index
-    ;iny ; There are 256 random values, random_index can just loop in circles via overflow
-    ;sty random_index
     lda random, Y
     lsr
     lsr
@@ -915,9 +664,7 @@ print_level_end_message:
     sta print_ptr
     lda #>level_complete_message
     sta print_ptr + 1
-    ;jsr ppu_off
     jsr print_text
-    ;jsr ppu_on
 rts
 
 ; IN
@@ -927,8 +674,6 @@ rts
 ; window_height
 ; MUST BE CALLED WHEN PPU RENDERING IS OFF! - maybe not
 print_window:
-
-
     ; window top
     ldx window_x
     ldy window_y

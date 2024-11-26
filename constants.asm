@@ -3,15 +3,12 @@ OAM_DMA         = $4014
 PPU_ADDRESS     = $2006
 PPU_DATA        = $2007
 PPU_SCROLL      = $2005
-;sprite_data     = $0200
 OAM = $0200
 NT0             = $2000 ; Nametable Zero
 SNAKE           = $0300
 SNAKE2          = $0400
 START_X         = $0500
 START_Y         = $0502
-;COLOR_BLACK     = #$0f
-;COLOR_WHITE     = #$20
 LEVEL_CHANGE    = $01
 
 GRASS = 0
