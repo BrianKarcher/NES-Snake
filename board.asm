@@ -2,10 +2,11 @@
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
-.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset, print_ptr, window_x, window_y
+.importzp random_index, temp_a, temp_x, temp_y, current_level, food_count, temp_offset, print_ptr, window_x, window_y, temp_i, tile
 ; .importzp meta_x, meta_y, meta_i
 .import screen, random, tile_to_screen_space_xy, ppu_update_tile, ppu_update_tile_temp, screen_space_to_ppu_space, ppu_update
 .import xy_meta_tile_offset, screen_rows, ppu_update_byte, coord_quarter
+.import ppu_update_tile_reg
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
 .export restore_board_meta_tile, ppu_place_board_meta_tile, attributes
 
@@ -94,19 +95,19 @@ level_complete_message:
 ; Naturally, this caps our metatiles at 256
 
 top_left:
-.byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80, $00
+.byte $90, $92, $b0, $ff, $05, $80, $02, $05, $11, $05, $80, $00, $15, $15
 
 top_right:
-.byte $91, $93, $b1, $ff, $05, $81, $05, $03, $81, $03, $10, $15
+.byte $91, $93, $b1, $ff, $05, $81, $05, $03, $81, $03, $10, $15, $15, $01
 
 bottom_left:
-.byte $a0, $a2, $c0, $ff, $15, $80, $80, $01, $15, $01, $12, $81
+.byte $a0, $a2, $c0, $ff, $15, $80, $80, $01, $15, $01, $12, $81, $ff, $ff
 
 bottom_right:
-.byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15, $ff
+.byte $a1, $a3, $c1, $ff, $15, $81, $00, $81, $13, $81, $15, $ff, $ff, $80
 
 color:
-.byte 1, 2, 0, 0, 3, 3, 3, 3, 3, 3, 3, 2
+.byte 1,   2,   0,   0,   3,   3,   3,   3,   3,   3,   3,   2,   2,   2
 
 attributes:
 .byte $00, $01, $02, $00, $01, $01, $01, $01, $01, $01, $01
@@ -349,13 +350,13 @@ ppu_place_board_meta_tile_reg:
     ; load the four tiles
     ldy temp_i
     lda top_left, y
-    sta tile, 0
+    sta tile + 0
     lda top_right, y
-    sta tile, 1
+    sta tile + 1
     lda bottom_left, y
-    sta tile, 2
+    sta tile + 2
     lda bottom_right, y
-    sta tile, 3
+    sta tile + 3
     ; restore Y
     ldy temp_y
 
@@ -368,20 +369,20 @@ ppu_place_board_meta_tile_reg:
     tay
 
     ; top_left
-    lda tile, 0
+    lda tile + 0
     jsr ppu_update_tile_reg
     inx
     ; top_right
-    lda tile, 1
+    lda tile + 1
     jsr ppu_update_tile_reg
     dex
     iny
     ; bottom_left
-    lda tile, 2
+    lda tile + 2
     jsr ppu_update_tile_reg
     inx
     ; bottom_right
-    lda tile, 3
+    lda tile + 3
     jsr ppu_update_tile_reg
 
     ; Create the attribute byte replacement
@@ -673,34 +674,34 @@ rts
 ; window_width
 ; window_height
 ; MUST BE CALLED WHEN PPU RENDERING IS OFF! - maybe not
-print_window:
-    ; window top
-    ldx window_x
-    ldy window_y
+; print_window:
+;     ; window top
+;     ldx window_x
+;     ldy window_y
 
-    lda #WINDOW_TOPLEFT
-    jsr ppu_place_board_meta_tile_reg
-    inx
-    lda #WINDOW_TOPMIDDLE
-    @forx:
-        inx
-        jsr ppu_place_board_meta_tile_reg
-        cpx window_width
-    bmi @forx
-    lda #WINDOW_TOPMIDDLE
-    jsr ppu_place_board_meta_tile_reg
-    jsr ppu_update
-    ; window middle
+;     lda #WINDOW_TOPLEFT
+;     jsr ppu_place_board_meta_tile_reg
+;     inx
+;     lda #WINDOW_TOPMIDDLE
+;     @forx:
+;         inx
+;         jsr ppu_place_board_meta_tile_reg
+;         cpx window_width
+;     bmi @forx
+;     lda #WINDOW_TOPMIDDLE
+;     jsr ppu_place_board_meta_tile_reg
+;     jsr ppu_update
+;     ; window middle
 
-    ; window bottom
+;     ; window bottom
 
-rts
+; rts
 
-print_window_top:
+; print_window_top:
 
 
 
-rts
+; rts
 
 ; Prints text to the screen. Text will appear on the next NMI update.
 ; Each line gets an NMI update to flush the cache. Also gives an interesting visual effect.

@@ -6,7 +6,7 @@
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter, print_ptr
-.export window_x, window_y, temp_i
+.export temp_i, tile, ppu_update_tile_reg
 
 .segment "HEADER"
 
@@ -727,7 +727,7 @@ rts
 
     tay
     lda (current_low_2), Y
-
+    sta temp_i
 rts
 .endproc
 
@@ -915,15 +915,15 @@ process_inputx: ; X register = 0 for controller 1, 1 for controller 2
 	cpx nmt_update_len
 	bcs @scroll
 	@nmt_update_loop:
-		lda nmt_update, X
+		lda nmt_update, X ; PPU High Byte address to store data
         sta current_high
 		sta $2006
 		inx
-		lda nmt_update, X
+		lda nmt_update, X ; Low byte
         sta current_low
 		sta $2006
 		inx
-		lda nmt_update, X
+		lda nmt_update, X ; data
 		sta $2007
 		inx
         
@@ -1183,7 +1183,7 @@ ppu_update_byte:
 	txa
 	sta nmt_update, Y
 	iny
-	pla ; recover Y value (but put in Y)
+	pla ; recover Y value (but put in A)
 	sta nmt_update, Y
 	iny
 	pla ; recover A value (byte)
