@@ -168,7 +168,15 @@ reset:
     stx $4017  ; disable APU frame IRQ
     ldx #$ff
     txs        ; Set up stack
-    stx $8000  ; reset the mapper
+    lda #$ee
+    sta resetInc
+    jsr reset_mapper
+    jsr init_mapper
+    ;lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
+    lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
+    jsr set_mapper_chr1
+
+    ; stx $8000  ; reset the mapper
 
     inx        ; now X = 0
     stx $2000  ; disable NMI
@@ -251,6 +259,41 @@ jsr level_start_wait
 		jsr ppu_update
 	jmp @loop
 .endproc
+
+reset_mapper:
+    ; inc resetInc
+    lda #$80
+    sta MMC1_CTRL ; Resets MMC1, sets the PRG-ROM bank mode to 3 (fixing the last bank at $C000 and allowing the 16 KB bank at $8000 to be switched)
+    rts
+
+init_mapper:
+    ; Step 1: Set Control Register to 4KB CHR mode
+    lda #%00001110     ; 4KB CHR mode (bit 4 = 1), vertical mirroring, 16KB PRG mode
+    sta MMC1_ANY       ; Bit 0
+    lsr
+    sta MMC1_ANY       ; Bit 1
+    lsr
+    sta MMC1_ANY       ; Bit 2
+    lsr
+    sta MMC1_ANY       ; Bit 3
+    lsr
+    sta MMC1_CTRL      ; Bit 4 (to $8000-$9FFF for Control Register)
+    rts
+
+; CHR bank 3 (12KB-16KB in CHR ROM)
+; Store the contents of A into MMC_CHR1
+; A is simply the bank to use. We feed the contents of A as a stream bit by bit.
+set_mapper_chr1:
+    ; lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
+    sta MMC1_ANY       ; Bit 0
+    lsr
+    sta MMC1_ANY       ; Bit 1
+    lsr
+    sta MMC1_ANY       ; Bit 2
+    lsr
+    sta MMC1_ANY       ; Bit 3
+    lsr
+    sta MMC1_CHR1      ; Bit 4 (to $C000-$DFFF for CHR Bank 1)
 
 .proc init_game
     lda #START_LEVEL
@@ -368,7 +411,8 @@ random:
     lda START_Y, x
     sta temp_y
     
-    ldy #BODY_HOR_SHAPE
+    lda #BODY_HOR_SHAPE
+    sta temp_i
     jsr ppu_place_board_meta_tile
 
     inc size, x

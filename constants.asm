@@ -60,8 +60,11 @@ PLAYER_COUNT = 1
 
 ; Define memory locations for MMC1 registers
 MMC1_CTRL    = $8000  ; MMC1 Control Register
-MMC1_DATA    = $8001  ; MMC1 Data Register
+MMC1_ANY        = $8000
+MMC1_CHR0       = $A000
+MMC1_CHR1       = $C000
+;MMC1_DATA    = $8001  ; MMC1 Data Register
 ; Define bankswitching values for MMC1
-BANK_SWITCH_LOW   = $80  ; Low 8KB PRG-ROM bank
-BANK_SWITCH_HIGH  = $C0  ; High 8KB PRG-ROM bank
+; BANK_SWITCH_LOW   = $80  ; Low 8KB PRG-ROM bank
+; BANK_SWITCH_HIGH  = $C0  ; High 8KB PRG-ROM bank
 HEADER_PALETTE    = $01
