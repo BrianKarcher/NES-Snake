@@ -168,13 +168,11 @@ reset:
     stx $4017  ; disable APU frame IRQ
     ldx #$ff
     txs        ; Set up stack
-    lda #$ee
-    sta resetInc
     jsr reset_mapper
     jsr init_mapper
     ;lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
-    lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
-    jsr set_mapper_chr1
+    ; lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
+    ; jsr set_mapper_chr0
 
     ; stx $8000  ; reset the mapper
 
@@ -282,7 +280,21 @@ init_mapper:
 
 ; CHR bank 3 (12KB-16KB in CHR ROM)
 ; Store the contents of A into MMC_CHR1
-; A is simply the bank to use. We feed the contents of A as a stream bit by bit.
+; A is simply the bank to use. 1 = bank 1, etc. in 4kb gaps.
+; We feed the contents of A as a stream bit by bit.
+set_mapper_chr0:
+    ; lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
+    sta MMC1_ANY       ; Bit 0
+    lsr
+    sta MMC1_ANY       ; Bit 1
+    lsr
+    sta MMC1_ANY       ; Bit 2
+    lsr
+    sta MMC1_ANY       ; Bit 3
+    lsr
+    sta MMC1_CHR0      ; Bit 4 (to $C000-$DFFF for CHR Bank 1)
+    rts
+
 set_mapper_chr1:
     ; lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
     sta MMC1_ANY       ; Bit 0
@@ -294,6 +306,7 @@ set_mapper_chr1:
     sta MMC1_ANY       ; Bit 3
     lsr
     sta MMC1_CHR1      ; Bit 4 (to $C000-$DFFF for CHR Bank 1)
+    rts
 
 .proc init_game
     lda #START_LEVEL

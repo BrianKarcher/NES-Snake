@@ -601,7 +601,8 @@ place_food:
     sta temp_a
     sta screen, y
 
-    ldy #FOOD
+    ; ldy #FOOD
+    sta temp_i
     jsr ppu_place_board_meta_tile    
 rts
 
