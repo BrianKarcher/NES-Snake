@@ -110,3 +110,22 @@ $6000-60FF  - Nametable update buffer (I may shorten this, not much needs to be 
 $6100-64C0  - Screen copy in CPU memory. I have a copy of the screen in CPU-addressable memory because the snake(s)
             - can get quite large. It is much faster to check for collisions in x,y memory than to loop through hundreds of bytes of an array or linked list.
             - The screen copy is the only reason I use SRAM at all. Otherwise this program would only use Work RAM.
+
+# Potential Optimizations #
+
+One optimization is to store the snake in a series of bits instead of bytes. Don't create a copy of the screen in RAM. Do tilemap collision detections from the static ROM, and snake collections in the snake data.
+
+The snake data can be accessed in O(1) by accessing its particular bit via this calc:
+(R << 5 | C) & 7
+
+&7 = %8. You can mod 8 by just AND'ing the three least significant bits. 7 = 0x0111.
+
+One snake now only needs 30 bytes. (8 bits * 240 possible positions on screen).
+
+The food will also not be stored on any screen data. That's just a simple x,y check.
+
+The game can now easily be stored in 2KB of RAM. The MMC1 is no longer needed.
+
+------
+
+Consider recording x,y positions for the segments instead of directions. The board is 16x15 so each segment can be stored in 8 bits (4 bits x, 4 bits y).

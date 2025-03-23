@@ -675,28 +675,30 @@ rts
 ; window_width
 ; window_height
 ; MUST BE CALLED WHEN PPU RENDERING IS OFF! - maybe not
-; print_window:
-;     ; window top
-;     ldx window_x
-;     ldy window_y
+print_window:
+    ; window top
+    ldx window_left
+    ldy window_top
 
-;     lda #WINDOW_TOPLEFT
-;     jsr ppu_place_board_meta_tile_reg
-;     inx
-;     lda #WINDOW_TOPMIDDLE
-;     @forx:
-;         inx
-;         jsr ppu_place_board_meta_tile_reg
-;         cpx window_width
-;     bmi @forx
-;     lda #WINDOW_TOPMIDDLE
-;     jsr ppu_place_board_meta_tile_reg
-;     jsr ppu_update
-;     ; window middle
+    lda #WINDOW_TOPLEFT
+    jsr ppu_place_board_meta_tile_reg
+    inx
+    lda #WINDOW_TOPMIDDLE
+    @forx:
+        cpx window_right
+        bmi @forxend
+        jsr ppu_place_board_meta_tile_reg
+        inx
+        jmp @forx
+    @forxend:
+    lda #WINDOW_TOPRIGHT
+    jsr ppu_place_board_meta_tile_reg
+    jsr ppu_update
+    ; window middle
 
-;     ; window bottom
+    ; window bottom
 
-; rts
+rts
 
 ; print_window_top:
 

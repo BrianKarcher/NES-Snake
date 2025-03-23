@@ -1200,19 +1200,18 @@ ppu_update_tile_temp:
     pla ; Get A from stack
 	rts
 
-; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
-ppu_update_tile:
+; Converts an x,y tile coordinate to the location in the nametable 1 array
+; Future enhancement - support other nametables. This game only ever uses NT 1 so no need.
+; IN X and Y registers
+; OUT return (hi), return + 1 (lo) bytes of nametable address
+tile_space_to_ppu_space:
 	pha ; temporarily store A on stack
-	txa
-	pha ; temporarily store X on stack
-	ldx nmt_update_len
 	tya
 	lsr
 	lsr ; every 8 rows is $100 hex in memory. - 32 tiles wide = 20 hex * 8 = 100 hex (remember hex is base 16)
 	lsr ; the 100 hex is important because we need the high byte in the next sta
 	ora #$20 ; high bits of Y + $20. The bits for 20 do not overlap with 1, 2, or 3. So OR-ing them gives us 20, 21, 22, or 23.
-	sta nmt_update, X
-	inx
+	sta return
 	tya
 	asl
 	asl
@@ -1220,18 +1219,31 @@ ppu_update_tile:
 	asl
 	asl ; 2 ^ 5 = 32. This multiplies Y by 32 (the width of the screen). Y * 32 + x = screen location in memory.
 	sta zp_temp_1
-	pla ; recover X value (but put in A)
+	txa
 	ora zp_temp_1 ; No bits overlap so OR is a very fast ADC
-	sta nmt_update, X
-	inx
-	pla ; recover A value (tile)
-	sta nmt_update, X
+    sta return + 1
+    pla ; restore A from stack
+    rts
+
+; ppu_update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call ppu_update
+ppu_update_tile:
+    pha ; store A
+    jsr tile_space_to_ppu_space
+    ldx nmt_update_len
+    lda return
+    sta nmt_update, X ; hi byte
+    inx
+    lda return + 1
+    sta nmt_update, X ; lo byte
+    inx
+    pla ; recover A value (tile)
+	sta nmt_update, X ; tile
 	inx
 	stx nmt_update_len
 	rts
 
 ; ppu_update_byte: like ppu_update_tile, but X/Y makes the high/low bytes of the PPU address to write
-;    this may be useful for updating attribute tiles
+;    this may be useful for updating attribute tiles or when you need to make a bunch of updates at once.
 ppu_update_byte:
 	pha ; temporarily store A on stack
 	tya
