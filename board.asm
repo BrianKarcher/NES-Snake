@@ -1,4 +1,4 @@
-.include "constants.asm"
+.include "constants.inc"
 ; Drawing the various game boards or levels
 
 .importzp zp_temp_1, zp_temp_2, zp_temp_3, start_low, start_high, current_low, current_high, end_low, end_high
@@ -44,28 +44,28 @@ board1:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 board2:
-.byte 2, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7
-.byte 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4
+.byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+.byte 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+.byte 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+.byte 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+.byte 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+.byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 
 boards:
 .word board0, board1, board2
 
 startxs1:
-    .byte $0f, $03, $09
+    .byte $0f, $03, $03
 startys1:
-    .byte $03, $03, $0f
+    .byte $03, $03, $03
 startxs2:
     .byte $10, $1a, $10
 startys2:
@@ -135,7 +135,7 @@ rts
 load_board_to_nt:
     ; locate board
     lda current_level
-    asl
+    asl ; We x2 because the array stores words for the addresses
     tax
 
     lda boards, x
@@ -294,6 +294,7 @@ place_header_foodx:
     jsr ppu_update_tile_temp
 rts
 
+; TODO - Get rid of this when we drop the screen from CPU memory.
 copy_current_low_to_screen:
     ldx #$00
     lda #HEADER
@@ -512,6 +513,9 @@ get_board_tile:
 
 rts
 
+; Loads the entire board from the ROM to the PPU. Must be done with the PPU OFF.
+; IN
+; current_low/high points to the board array in the ROM
 board_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
@@ -675,30 +679,30 @@ rts
 ; window_width
 ; window_height
 ; MUST BE CALLED WHEN PPU RENDERING IS OFF! - maybe not
-print_window:
-    ; window top
-    ldx window_left
-    ldy window_top
+; print_window:
+;     ; window top
+;     ldx window_left
+;     ldy window_top
 
-    lda #WINDOW_TOPLEFT
-    jsr ppu_place_board_meta_tile_reg
-    inx
-    lda #WINDOW_TOPMIDDLE
-    @forx:
-        cpx window_right
-        bmi @forxend
-        jsr ppu_place_board_meta_tile_reg
-        inx
-        jmp @forx
-    @forxend:
-    lda #WINDOW_TOPRIGHT
-    jsr ppu_place_board_meta_tile_reg
-    jsr ppu_update
-    ; window middle
+;     lda #WINDOW_TOPLEFT
+;     jsr ppu_place_board_meta_tile_reg
+;     inx
+;     lda #WINDOW_TOPMIDDLE
+;     @forx:
+;         cpx window_right
+;         bmi @forxend
+;         jsr ppu_place_board_meta_tile_reg
+;         inx
+;         jmp @forx
+;     @forxend:
+;     lda #WINDOW_TOPRIGHT
+;     jsr ppu_place_board_meta_tile_reg
+;     jsr ppu_update
+;     ; window middle
 
-    ; window bottom
+;     ; window bottom
 
-rts
+; rts
 
 ; print_window_top:
 

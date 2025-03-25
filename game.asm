@@ -1,5 +1,5 @@
 ; main game Loop
-.include "constants.asm"
+.include "constants.inc"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
 .import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes
@@ -885,7 +885,7 @@ rts
 process_level_change:
     jsr print_level_end_message
     jsr ppu_update
-    jsr inf_loop
+    jsr wait_until_a_b_button_press
 
     @end:
     inc current_level
@@ -894,6 +894,20 @@ process_level_change:
     ; Wait for next frame and turns PPU rendering back on
     jsr ppu_on
     jsr ppu_update
+rts
+
+wait_until_a_b_button_press:
+    :
+        jsr ppu_skip
+        jsr readjoy2_safe
+        ldx #$0
+        lda buttons, x
+        and #BUTTON_A
+        bne @rtn
+        and #BUTTON_B
+        bne @rtn
+        jmp :-
+    @rtn:
 rts
 
 .proc inf_loop
