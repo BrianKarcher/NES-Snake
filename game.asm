@@ -394,6 +394,7 @@ random:
     rts
 .endproc
 
+; x = player count index
 .proc init_place_snake
     ldx #$0
     @loop:
@@ -1099,8 +1100,11 @@ ppu_address_tile:
 	sta $2006 ; low bits of Y + X
 	rts
 
+; IN
+; temp_y, temp_x
+; proc converts an x,y position for a Metatile to the screen space's offset.
 ; OUT
-; A = tile offset
+; A = meta tile offset
 ; Works ONLY on Metatiles (2x2 tiles)
 .proc xy_meta_tile_offset
     ; Perform calculation y * width(16) + x
