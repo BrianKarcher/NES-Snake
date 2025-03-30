@@ -2,13 +2,13 @@
 AS = ca65
 LD = ld65
 
-SOURCES = init.asm game.asm input.asm board.asm
+SOURCES = init.asm game.asm input.asm board.asm nametable.asm
 #SOURCES = write_to_sram_mmc1.asm
 OBJECTS = $(SOURCES:.asm=.o)
 OUTPUT = snake.nes
 
 TARGET=none
-CONFIG=nes.cfg
+CONFIG=snake.cfg
 OBJECTFILE=./snake.o
 OUTFILE=./snake.nes
 DBGFILE=./snake.dbg

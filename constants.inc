@@ -1,5 +1,7 @@
 OAM_ADDRESS     = $2003
 OAM_DMA         = $4014
+PPU_MASK        = $2001
+PPU_STATUS      = $2002
 PPU_ADDRESS     = $2006
 PPU_DATA        = $2007
 PPU_SCROLL      = $2005

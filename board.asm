@@ -179,13 +179,13 @@ startxs1:
 startys1:
     .byte $03, $03, $03
 startdirs1:
-    .byte #DOWN, #DOWN, #DOWN
+    .byte DOWN, DOWN, DOWN
 startxs2:
     .byte $10, $1a, $10
 startys2:
     .byte $11, $1a, $11
 startdirs2:
-    .byte #DOWN, #DOWN, #DOWN
+    .byte DOWN, DOWN, DOWN
 
 header:
     .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "S", "N", "A", "K", "E", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff

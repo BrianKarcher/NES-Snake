@@ -2,11 +2,11 @@
 .include "constants.inc"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
-.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes
+.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes, copy_nametable
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter, print_ptr
-.export temp_i, tile, ppu_update_tile_reg
+.export temp_i, tile, ppu_update_tile_reg, nametable_ptr, titlescreen_pal, palette_ptr
 
 .segment "HEADER"
 
@@ -16,7 +16,7 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 
 .byte 'N', 'E', 'S', $1A ; ID
 .byte $02 ; 16k PRG chunk count
-.byte $01 ; 8k CHR chunk count
+.byte $02 ; 8k CHR chunk count
 .byte INES_MIRROR | (INES_SRAM << 1) | ((INES_MAPPER & $f) << 4)
 .byte (INES_MAPPER & %11110000)
 .byte $0, $0, $0, $0, $0, $0, $0, $0 ; padding
@@ -90,6 +90,8 @@ meta_y:         .res 1
 meta_i:         .res 1
 tile:           .res 4 ; Used when we find the four tiles in a metatile
 temp_i:         .res 1
+nametable_ptr:  .res 2 ; Pointer to nametable data in RAM
+palette_ptr:    .res 2 ; Pointer to a palette in RAM
 
 .segment "BSS"          ; This is the 8k SRAM memory (can be used for work or saves)
 nmt_update: .res 256 ; nametable update entry buffer for PPU update
@@ -169,10 +171,11 @@ reset:
     ldx #$ff
     txs        ; Set up stack
     jsr reset_mapper
+    lda #%00001110     ; 4KB CHR mode (bit 4 = 1), vertical mirroring, 16KB PRG mode
     jsr init_mapper
-    ;lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
+    lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
     ; lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
-    ; jsr set_mapper_chr0
+    jsr set_mapper_chr0
 
     ; stx $8000  ; reset the mapper
 
@@ -219,6 +222,11 @@ reset:
     bit $2002
     bpl @vblankwait2
 
+lda #<titlescreen_pal
+sta palette_ptr
+lda #>titlescreen_pal
+sta palette_ptr + 1
+lda #$0f
 jsr load_palette
 
 ; Set up OAMADDR
@@ -228,8 +236,16 @@ sta OAM_ADDRESS             ; Store low byte into OAMADDR
 lda #$20                    ; High byte of sprite_data address
 sta OAM_ADDRESS             ; Store high byte into OAMADDR
 
-jsr init_game
-jsr init_level
+lda #<nametable_data
+sta nametable_ptr
+lda #>nametable_data
+sta nametable_ptr + 1
+; Copy to the first nametable ($2000)
+lda #$20
+jsr copy_nametable
+
+; jsr init_game
+; jsr init_level
 
 ; Trigger OAMDMA transfer
 lda #%10001000
@@ -238,6 +254,7 @@ lda #$1e
 sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
+jsr inf_loop
 
 jsr draw_head
 jsr ppu_update
@@ -266,7 +283,6 @@ reset_mapper:
 
 init_mapper:
     ; Step 1: Set Control Register to 4KB CHR mode
-    lda #%00001110     ; 4KB CHR mode (bit 4 = 1), vertical mirroring, 16KB PRG mode
     sta MMC1_ANY       ; Bit 0
     lsr
     sta MMC1_ANY       ; Bit 1
@@ -1534,5 +1550,14 @@ rts
 .segment "VECTORS"
 	.addr nmi, reset, 0
 
-.segment "CHARS"
+.segment "CHR_BANK_0"
     .incbin "sprites.chr"
+
+.segment "CHR_BANK_1"
+    .incbin "titlescreen.chr"
+
+.segment "RODATA"
+nametable_data:
+    .incbin "titlescreen.nam"
+titlescreen_pal:
+    .incbin "titlescreen.pal"
