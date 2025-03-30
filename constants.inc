@@ -57,6 +57,8 @@ BUTTON_DOWN   = 1 << 2
 BUTTON_LEFT   = 1 << 1
 BUTTON_RIGHT  = 1 << 0
 
+ACTION_BUTTONS = BUTTON_A | BUTTON_B | BUTTON_START | BUTTON_SELECT ; The right four bits are the action buttons
+
 START_LEVEL = 2
 PLAYER_COUNT = 1
 

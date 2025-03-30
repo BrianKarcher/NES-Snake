@@ -2,7 +2,7 @@
 .include "constants.inc"
 
 .import init, load_palette, draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, generate_attribute_byte_header
-.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes, copy_nametable
+.import readjoy2_safe, restore_board_meta_tile, ppu_place_board_meta_tile, attributes, copy_nametable, forest_palette_0
 .export zp_temp_1, zp_temp_2, zp_temp_3, screen, screen_rows, current_low, current_high, end_low, end_high, current_low_2, current_high_2
 .export random_index, random, ppu_update_tile, ppu_update_tile_temp, temp_a, temp_x, temp_y, current_level, xy_meta_tile_offset
 .export food_count, ppu_update, xy_meta_tile_offset, temp_offset, buttons, ppu_update_byte, coord_quarter, print_ptr
@@ -244,9 +244,6 @@ sta nametable_ptr + 1
 lda #$20
 jsr copy_nametable
 
-; jsr init_game
-; jsr init_level
-
 ; Trigger OAMDMA transfer
 lda #%10001000
 sta $2000  ; enable NMI, sprite pattern table starts at $1000
@@ -254,9 +251,13 @@ lda #$1e
 sta $2001  ; enable rendering
 lda #$ff
 sta $4010  ; enable DMC IRQs
-jsr inf_loop
+jsr wait_until_any_button_press
 
+jsr ppu_off
+jsr init_game
+jsr init_level
 jsr draw_head
+jsr ppu_on
 jsr ppu_update
 jsr level_start_wait
 
@@ -325,6 +326,9 @@ set_mapper_chr1:
     rts
 
 .proc init_game
+    lda #0             ; CHR bank 0 (0KB-4KB in CHR ROM)
+    ; lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
+    jsr set_mapper_chr0
     lda #START_LEVEL
     sta current_level
     ; TODO player_count and snake_speed to be in-game user-selected values
@@ -336,6 +340,14 @@ set_mapper_chr1:
 .proc init_level
     lda #$00
     sta level_complete
+
+    lda #<forest_palette_0
+    sta palette_ptr
+    lda #>forest_palette_0
+    sta palette_ptr + 1
+    lda #$20
+    jsr load_palette
+
     jsr draw_board
     jsr place_food
     jsr init_level_variables
@@ -921,8 +933,21 @@ wait_until_a_b_button_press:
         lda buttons, x
         and #BUTTON_A
         bne @rtn
+        lda buttons, x
         and #BUTTON_B
         bne @rtn
+        jmp :-
+    @rtn:
+rts
+
+wait_until_any_button_press:
+    :
+        jsr readjoy2_safe
+        ldx #$0
+        lda buttons, x
+        and #ACTION_BUTTONS
+        bne @rtn
+        jsr ppu_update
         jmp :-
     @rtn:
 rts

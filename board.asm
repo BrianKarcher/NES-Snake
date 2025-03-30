@@ -8,7 +8,7 @@
 .import xy_meta_tile_offset, screen_rows, ppu_update_byte, coord_quarter
 .import ppu_update_tile_reg
 .export draw_board, place_food, place_header_food, print_level_end_message, generate_attribute_byte, get_board_tile
-.export restore_board_meta_tile, ppu_place_board_meta_tile, attributes
+.export restore_board_meta_tile, ppu_place_board_meta_tile, attributes, forest_palette_0
 
 ; 2x2 tiles. indexes into the tile table below
 board0:
@@ -186,6 +186,16 @@ startys2:
     .byte $11, $1a, $11
 startdirs2:
     .byte DOWN, DOWN, DOWN
+
+forest_palette_0:
+    .byte $2a, $0f, $15, $30 ; header ; background
+    .byte $0f, $2a, $27, $26 ; grass
+    .byte $0f, $0f, $3d, $2d ; grays
+    .byte $0f, $1c, $27, $30 ; snake
+    .byte $2a, $1c, $27, $30 ; snake ; sprites
+    .byte $0f, $25, $1a, $39 ; snake toungue
+    .byte $0f, $1c, $27, $30 ; snake
+    .byte $0f, $1c, $27, $30 ; snake
 
 header:
     .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, "S", "N", "A", "K", "E", $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff
