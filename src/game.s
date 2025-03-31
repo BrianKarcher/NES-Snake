@@ -1576,13 +1576,13 @@ rts
 	.addr nmi, reset, 0
 
 .segment "CHR_BANK_0"
-    .incbin "sprites.chr"
+    .incbin "./assets/sprites.chr"
 
 .segment "CHR_BANK_1"
-    .incbin "titlescreen.chr"
+    .incbin "./assets/titlescreen.chr"
 
 .segment "RODATA"
 nametable_data:
-    .incbin "titlescreen.nam"
+    .incbin "./assets/titlescreen.nam"
 titlescreen_pal:
-    .incbin "titlescreen.pal"
+    .incbin "./assets/titlescreen.pal"

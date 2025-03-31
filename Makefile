@@ -1,45 +1,87 @@
-# Define the assembler and linker
-AS = ca65
-LD = ld65
+# Directory structure
+SRC_DIR     := src
+OBJ_DIR     := build/obj
+BIN_DIR     := build/bin
+CFG_DIR     := config
+ASSET_DIR   := assets
 
-SOURCES = init.asm game.asm input.asm board.asm nametable.asm
-#SOURCES = write_to_sram_mmc1.asm
-OBJECTS = $(SOURCES:.asm=.o)
-OUTPUT = snake.nes
+# Files
+ROM_NAME    := snake
+CFG_FILE    := $(CFG_DIR)/$(ROM_NAME).cfg
+SOURCES     := $(wildcard $(SRC_DIR)/*.s)
+OBJECTS     := $(SOURCES:$(SRC_DIR)/%.s=$(OBJ_DIR)/%.o)
+ROM_FILE    := $(BIN_DIR)/$(ROM_NAME).nes
 
-TARGET=none
-CONFIG=snake.cfg
-OBJECTFILE=./snake.o
-OUTFILE=./snake.nes
-DBGFILE=./snake.dbg
-MAPFILE=./snake.map
-LABELFILE=./snake.lbl
-LINKERFILE=./snake.lnk
-SOURCE=init.asm
+# Tools
+CC65_HOME   := /path/to/cc65  # Adjust this to your cc65 installation path
+CA65        := ca65
+LD65        := ld65
 
-# Assembly rules
-%.o: %.asm
-	$(AS) -o $@ $<
+# Flags
+CAFLAGS     := -t nes -I $(SRC_DIR)/includes
+LDFLAGS     := -C $(CFG_FILE) --mapfile $(BIN_DIR)/$(ROM_NAME).map
 
-# Link rule
-$(OUTPUT): $(OBJECTS)
-	$(LD) -o $(OUTPUT) $(OBJECTS) -Ln ${LABELFILE} -m ${MAPFILE} -vm --dbgfile ${DBGFILE} -C ${CONFIG}
+# Debug information
+$(info Sources found: $(SOURCES))
+$(info Objects to build: $(OBJECTS))
 
-.PHONY: build clean run env-emulator-path
+# Create directories if they don't exist
+# $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR))
 
-build: $(OUTPUT)
+# Main target
+all: $(ROM_FILE)
 
-# ca65 constants.asm
-# ca65 ${SOURCE}
-# ld65 -Ln ${LABELFILE} -m ${MAPFILE} -vm --dbgfile ${DBGFILE} -o ${OUTFILE} -C ${CONFIG} ${OBJECTFILE} constants.o ${TARGET}.lib
+# Link object files into the final ROM
+$(ROM_FILE): $(OBJECTS) $(CFG_FILE) | $(BIN_DIR)
+	$(LD65) $(LDFLAGS) -o $@ $(OBJECTS)
+	@echo "ROM created: $@"
 
-run: env-emulator-path
-	${EMULATOR_PATH} ${OUTFILE}
+# Compile assembly files to object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.s | $(OBJ_DIR)
+	$(CA65) $(CAFLAGS) -o $@ $<
 
-env-emulator-path:
-ifndef EMULATOR_PATH
-	$(error EMULATOR_PATH is not set)
-endif
+# Compile nametable assets
+nametables:
+	@mkdir -p $(OBJ_DIR)/nametables
+	@for nam in $(wildcard $(ASSET_DIR)/nametables/*.nam); do \
+		base=$$(basename $$nam); \
+		echo "Converting nametable: $$base"; \
+		# If you need to process .nam files, add commands here \
+	done
 
-# ca65 -g -l ${LINKERFILE} -t ${TARGET} ${SOURCE} -o ${OBJECTFILE}
-# ca65 -g -l constants.lnk -t ${TARGET} constants.asm -o constants.o
+# Clean build artifacts
+clean:
+	rm -rf $(OBJ_DIR)/* $(BIN_DIR)/*
+
+# Clean everything including built assets
+distclean: clean
+	rm -rf build
+
+# Run the ROM in an emulator
+run: $(ROM_FILE)
+	fceux $(ROM_FILE)
+
+# Phony target to list all source files found
+list-sources:
+	@echo "Source files found:"
+	@for src in $(SOURCES); do echo "  $$src"; done
+	@echo "Object files to create:"
+	@for obj in $(OBJECTS); do echo "  $$obj"; done
+
+# Create required directories
+directories:
+	@if not exist $(subst /,\,$(OBJ_DIR)) mkdir $(subst /,\,$(OBJ_DIR))
+	@if not exist $(subst /,\,$(BIN_DIR)) mkdir $(subst /,\,$(BIN_DIR))
+
+# Display help
+help:
+	@echo "NES Project Makefile"
+	@echo "-------------------"
+	@echo "Targets:"
+	@echo "  all        - Build the ROM (default)"
+	@echo "  clean      - Remove object files and ROM"
+	@echo "  distclean  - Remove all generated files"
+	@echo "  nametables - Process nametable files"
+	@echo "  run        - Run the ROM in FCEUX emulator"
+
+.PHONY: all clean distclean nametables run help
