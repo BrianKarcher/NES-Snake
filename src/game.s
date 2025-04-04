@@ -171,9 +171,9 @@ reset:
     ldx #$ff
     txs        ; Set up stack
     jsr reset_mapper
-    lda #%00001110     ; 4KB CHR mode (bit 4 = 1), vertical mirroring, 16KB PRG mode
+    lda #%00011110     ; 4KB CHR mode (bit 4 = 0), vertical mirroring, 16KB PRG mode
     jsr init_mapper
-    lda #3             ; CHR bank 3 (12KB-16KB in CHR ROM)
+    lda #2             ; CHR bank 3 (12KB-16KB in CHR ROM)
     ; lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
     jsr set_mapper_chr0
 
@@ -309,7 +309,7 @@ set_mapper_chr0:
     lsr
     sta MMC1_ANY       ; Bit 3
     lsr
-    sta MMC1_CHR0      ; Bit 4 (to $C000-$DFFF for CHR Bank 1)
+    sta MMC1_CHR0      ; Bit 4 (to $A000-$BFFF for CHR Bank 1)
     rts
 
 set_mapper_chr1:
@@ -329,6 +329,8 @@ set_mapper_chr1:
     lda #0             ; CHR bank 0 (0KB-4KB in CHR ROM)
     ; lda #$1             ; CHR bank 1 (4KB-8KB in CHR ROM)
     jsr set_mapper_chr0
+    lda #1
+    jsr set_mapper_chr1
     lda #START_LEVEL
     sta current_level
     ; TODO player_count and snake_speed to be in-game user-selected values
