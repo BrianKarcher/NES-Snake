@@ -175,7 +175,7 @@ boards:
 .word board0, board1, board2, board3, board4, board5, board6, board7, board8, board9
 
 startxs1:
-    .byte $0f, $03, $03
+    .byte $03, $03, $03
 startys1:
     .byte $03, $03, $03
 startdirs1:

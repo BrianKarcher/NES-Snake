@@ -28,10 +28,12 @@ nmi_ready:      .res 1 ; 01 set to 1 to push a PPU frame update, 2 to turn rende
 buttons:        .res 2 ; 02, 03
 nmi_count:      .res 1 ; 04
 tick_count:     .res 1 ; 05
-head_x:         .res 2 ; 06, 07 Enable two-player
-head_y:         .res 2 ; 08, 09
+; Location of the head in tile coords
+head_tile_x:    .res 2 ; 06, 07 Enable two-player
+head_tile_y:     .res 2 ; 08, 09
 new_x:          .res 2 ; 0a, 0b UNUSED
 new_y:          .res 2 ; 0c, 0d UNUSED
+; Location of the tail in tile coords
 tail_x:         .res 2 ; 0e, 0f
 tail_y:         .res 2 ; 10, 11
 snake_update:   .res 1 ; 12
@@ -64,6 +66,7 @@ temp_offset:    .res 1 ; 33
 prev_dir:       .res 2 ; 34, 35
 return:         .res 2 ; 36, 37 sub return value
 ; Postions are an 8.4 fixed point structure. This requires two bytes.
+; x,y are the location of the head in pixels
 x_px:           .res 2 ; 38, 39
 x_sub_px:       .res 2 ; 3a, 3b
 y_px:           .res 2 ; 3c, 3d
@@ -387,8 +390,9 @@ random:
         sta next_dir, y
         lda #$07
         sta target_size, y
+
         lda START_X, y
-        sta head_x, y
+        sta head_tile_x, y
         sta prev_head_x, y
         sta tail_x, y
         asl ; Multiply by 16 to get x in pixels
@@ -399,9 +403,10 @@ random:
         lda return
         sta x_px, y
         lda return + 1
-        sta x_sub_px
+        sta x_sub_px, y
+
         lda START_Y, y
-        sta head_y, y
+        sta head_tile_y, y
         sta prev_head_y, y
         sta tail_y, y
         asl ; Multiply by 16 to get y in pixels
@@ -412,7 +417,7 @@ random:
         lda return
         sta y_px, y
         lda return + 1
-        sta y_sub_px
+        sta y_sub_px, y
         lda #$00
         sta head_index, y
         sta tail_index, y
@@ -464,6 +469,8 @@ random:
     ldy #RIGHT
     lda speed_x_dir, y
     sta x_vel_px, x ; TODO - Change it so that the snake doesn't move at the start for a time so the player can view the level.
+    lda #$0
+    sta y_vel_px, x
 
     inx
     cpx player_count
@@ -482,9 +489,9 @@ random:
 
     jsr align_head_if_turning
     jsr process_snake_new_tile
-    lda head_x
+    lda head_tile_x
     sta prev_head_x
-    lda head_y
+    lda head_tile_y
     sta prev_head_y
     @end:
     jsr draw_head
@@ -497,7 +504,7 @@ random:
     lda cur_dir
     cmp next_dir
     beq @end
-        lda head_x
+        lda head_tile_x
         asl
         asl
         asl
@@ -509,7 +516,7 @@ random:
         lda return + 1
         sta x_sub_px
 
-        lda head_y
+        lda head_tile_y
         asl
         asl
         asl
@@ -523,6 +530,8 @@ random:
 rts
 .endproc
 
+; Checks the x and y pixels to see if we have entered a new tile, considers an offset based on direction
+; This function also updates the head tile position.
 ; OUT A (1 = changed, 0 = unchanged)
 .proc check_tile_change
     lda #$0
@@ -561,10 +570,10 @@ rts
         lsr
         lsr
         lsr ; divide by 16
-        cmp head_y
+        cmp head_tile_y
         beq @end
         ; y tile changed
-        sta head_y
+        sta head_tile_y
         lda #$1
         sta return
         rts
@@ -575,10 +584,10 @@ rts
         lsr
         lsr
         lsr ; divide by 16
-        cmp head_x
+        cmp head_tile_x
         beq @end
         ; x tile changed
-        sta head_x
+        sta head_tile_x
         lda #$1
         sta return
         rts
@@ -696,6 +705,7 @@ rts
 rts
 .endproc
 
+; TODO Make this snake independent - right now the game assumes that both snakes reach a new tile at the same time.
 .proc process_snake_new_tile
     ldx #$0
     @loop:
@@ -734,9 +744,9 @@ rts
 .proc move_snakex
     ; Using the temp variable version of the routine so X remains intact
     ; This has the unintended side effect of making indexing cleaner, further simplifying code.
-    lda head_y, x
+    lda head_tile_y, x
     sta temp_y
-    lda head_x, x
+    lda head_tile_x, x
     sta temp_x
     jsr xy_meta_tile_offset
     sta snake_head_offset
@@ -744,7 +754,7 @@ rts
     jsr process_collision_detection
 
     jsr store_head
-    jsr move_head
+    jsr store_new_head_in_array
 
     jsr process_tail
 	rts
@@ -758,9 +768,8 @@ rts
     rts
 .endproc
 
-.proc move_head
-    ; Record the movement to the "linked list"
-    ; I call it a linked list but it's more of a sliding window array. Uses less memory. Need to be careful for page reset however.
+.proc store_new_head_in_array
+    ; Record the movement to the rotating array.
     ; Mark the current head with the direction to the new head
 
     lda snakes_hi, x
@@ -779,9 +788,9 @@ rts
     sty head_index, x
 
     ; Draw over old head with body
-    lda head_x, x
+    lda head_tile_x, x
     sta temp_x
-    lda head_y, x
+    lda head_tile_y, x
     sta temp_y
     jsr choose_body_metatile
     tay
@@ -819,6 +828,8 @@ rts
 rts
 .endproc
 
+; I figure the game is more fun if the snake can loop around the level.
+; We do a bounds check and move the tail to the other side of the screen so it properly follows the head.
 .proc process_tail
     ; Move tail?
     lda size, x
@@ -838,19 +849,39 @@ rts
         cmp #UP
         bne @not_up
             dec tail_y, x
+            ; bounds check
+            lda tail_y, x
+            cmp #$01 ; 1 ; The header is not a play area
+            bne tail_done
+            lda #$e     ; 14
+            sta tail_y, x
             jmp tail_done
         @not_up:
         cmp #DOWN
         bne @not_down
             inc tail_y, x
+            lda tail_y, x
+            cmp #$f ; 15
+            bne tail_done
+            lda #$1 ; 1 ; The header is not a play area
+            sta tail_y, x
             jmp tail_done
         @not_down:
         cmp #LEFT
         bne @not_left
             dec tail_x, x
+            ; bounds check
+            bpl tail_done
+            lda #$f ; 15
+            sta tail_x, x
             jmp tail_done
         @not_left:
             inc tail_x, x
+            lda tail_x, x
+            cmp #$10 ; 16
+            bne tail_done
+            lda #$0
+            sta tail_x, x
             jmp tail_done
         jmp tail_done
     grow:
