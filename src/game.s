@@ -620,6 +620,34 @@ rts
     sta y_px
     lda return + 1
     sta y_sub_px
+
+    ; Bounds check
+    ; X is free to loop around from 255 to 0 and back again and we don't care.
+
+    ; Y has an issue because pixels 240 to 255 are out of bounds and cannot be rendered on screen.
+    ; If Y is greater than 250 then we'll assume the snake crossed the top boundary.
+    ; If Y is greater than 240 then we'll assume the snake crossed the bottom boundary.
+    jsr convert_fixed_point_y_to_unsigned ; Unsigned Y coord is now in A
+    cmp #$fa ; 250
+    bcc @not_top
+        ; Snake exited through the top of the screen
+        ; Add 240 to Y
+        ; Y is stored in 8.4 fixed point format
+        ; 240 in 8.4 is 1111 0000 0000
+        ; We luckily only need to worry about the high byte
+        lda y_px
+        clc
+        adc #$f ; 15
+        sta y_px
+    @not_top:
+    cmp #$f0 ; 240
+    bcc @end
+        ; Same process as above
+        lda y_px
+        sec
+        sbc #$f ; 15
+        sta y_px
+    @end:
 rts
 .endproc
 
@@ -791,11 +819,15 @@ rts
     lda head_tile_x, x
     sta temp_x
     lda head_tile_y, x
+    ; Do a bounds check. If the snake head exits the screen to the top, the Y coordinate becomes out of bounds as it loops around to 255.
+    cmp #$f ; 15
+    bcs @end
     sta temp_y
     jsr choose_body_metatile
     tay
     jsr ppu_place_board_meta_tile
 
+    @end:
     rts
 .endproc
 
@@ -851,7 +883,7 @@ rts
             dec tail_y, x
             ; bounds check
             lda tail_y, x
-            cmp #$01 ; 1 ; The header is not a play area
+            cmp #$00 ; 0 ; The header is not a play area
             bne tail_done
             lda #$e     ; 14
             sta tail_y, x
@@ -863,7 +895,7 @@ rts
             lda tail_y, x
             cmp #$f ; 15
             bne tail_done
-            lda #$1 ; 1 ; The header is not a play area
+            lda #$0 ; 0 ; The header is not a play area
             sta tail_y, x
             jmp tail_done
         @not_down:

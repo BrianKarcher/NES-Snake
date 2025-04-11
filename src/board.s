@@ -26,8 +26,10 @@ board0:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 board1:
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -47,6 +49,7 @@ board2:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
@@ -63,6 +66,7 @@ board3:
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -76,6 +80,7 @@ board3:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
 
 board4:
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
@@ -98,6 +103,7 @@ board5:
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
+.byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
@@ -108,6 +114,7 @@ board5:
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 
 board6:
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0
@@ -126,6 +133,7 @@ board6:
 board7:
 .byte 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
+.byte 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
 .byte 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1
@@ -140,6 +148,7 @@ board7:
 .byte 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
 
 board8:
+.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -156,6 +165,7 @@ board8:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 board9:
+.byte 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0
 .byte 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1
 .byte 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0
 .byte 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0
@@ -270,7 +280,7 @@ load_board_to_nt:
     sta current_high
 
     ; It's easier to load it into the ppu memory first
-    jsr header_to_ppu_load
+    ; jsr header_to_ppu_load
     jsr board_to_ppu_load
 
     ldy #$f0
@@ -366,7 +376,7 @@ rts
     sta zp_temp_2
 
     iny ; bottom-right
-    ldx screen, y ; bottom-left
+    ldx screen, y ; bottom-right
     lda color, x
     asl
     asl
@@ -381,20 +391,20 @@ rts
     rts
 .endproc
 
-header_to_ppu_load:
-    lda #>NT0
-    sta PPU_ADDRESS
-    lda #<NT0
-    sta PPU_ADDRESS
-    ldy #$0
-    @fory:
-        ; This is just a memory span, no need to loop x
-        lda header, y
-        sta PPU_DATA ; PPU memory
-        iny
-    cpy #$40 ; 64, two full lines
-    bne @fory
-rts
+; header_to_ppu_load:
+;     lda #>NT0
+;     sta PPU_ADDRESS
+;     lda #<NT0
+;     sta PPU_ADDRESS
+;     ldy #$0
+;     @fory:
+;         ; This is just a memory span, no need to loop x
+;         lda header, y
+;         sta PPU_DATA ; PPU memory
+;         iny
+;     cpy #$40 ; 64, two full lines
+;     bne @fory
+; rts
 
 place_header_food:
     txa
@@ -422,12 +432,12 @@ rts
 ; TODO - Get rid of this when we drop the screen from CPU memory.
 copy_current_low_to_screen:
     ldx #$00
-    lda #HEADER
-    @header_loop:
-        sta screen, x
-        inx
-        cpx #$10
-    bne @header_loop
+    ; lda #HEADER
+    ; @header_loop:
+    ;     sta screen, x
+    ;     inx
+    ;     cpx #$10
+    ; bne @header_loop
 
     ldy #$0
     @loop:
@@ -645,8 +655,8 @@ board_to_ppu_load:
     lda #>NT0
     sta PPU_ADDRESS
     lda #<NT0
-    clc
-    adc #$40 ; skip the title area
+    ; clc
+    ; adc #$40 ; skip the title area
     sta PPU_ADDRESS
     ldx #$0
     ldy #$0
@@ -705,7 +715,7 @@ board_to_ppu_load:
         sta zp_temp_2
         inc zp_temp_3
         lda zp_temp_3 ; row count
-        cmp #$e ; 14
+        cmp #$f ; 15
     bne @fory
     ; reset scroll location to top-left of screen
     lda #$00
