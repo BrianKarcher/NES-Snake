@@ -570,9 +570,12 @@ rts
         lsr
         lsr
         lsr ; divide by 16
+        cmp #$f ; 15. This takes care of the out of bounds looparound. $f is not a valid Y tile so this is not a tile change.
+        beq @end
         cmp head_tile_y
         beq @end
         ; y tile changed
+
         sta head_tile_y
         lda #$1
         sta return
@@ -639,8 +642,9 @@ rts
         clc
         adc #$f ; 15
         lda #$ef ; 239
+        lda #$e ; 14
         sta y_px
-        lda #$0
+        lda #$f0 ; 239 ironically. This is pixel and subpixel perfect to the bounds of the wraparound.
         sta y_sub_px
         jmp @end
     @not_top:
@@ -791,7 +795,7 @@ rts
     jsr store_head
     jsr store_new_head_in_array
 
-    ; jsr process_tail
+    jsr process_tail
 	rts
 .endproc
 
@@ -831,7 +835,7 @@ rts
     sta temp_y
     jsr choose_body_metatile
     tay
-    ; jsr ppu_place_board_meta_tile
+    jsr ppu_place_board_meta_tile
 
     rts
 .endproc
