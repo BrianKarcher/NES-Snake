@@ -34,8 +34,8 @@ head_tile_y:     .res 2 ; 08, 09
 new_x:          .res 2 ; 0a, 0b UNUSED
 new_y:          .res 2 ; 0c, 0d UNUSED
 ; Location of the tail in tile coords
-tail_x:         .res 2 ; 0e, 0f
-tail_y:         .res 2 ; 10, 11
+tail_x:         .res 2 ; 0e, 0f UNUSED
+tail_y:         .res 2 ; 10, 11 UNUSED
 snake_update:   .res 1 ; 12
 next_dir:       .res 2 ; 13, 14
 cur_dir:        .res 2 ; 15, 16
@@ -394,7 +394,7 @@ random:
         lda START_X, y
         sta head_tile_x, y
         sta prev_head_x, y
-        sta tail_x, y
+        ; sta tail_x, y
         asl ; Multiply by 16 to get x in pixels
         asl
         asl
@@ -408,7 +408,7 @@ random:
         lda START_Y, y
         sta head_tile_y, y
         sta prev_head_y, y
-        sta tail_y, y
+        ; sta tail_y, y
         asl ; Multiply by 16 to get y in pixels
         asl
         asl
@@ -629,7 +629,7 @@ rts
     ; If Y is greater than 240 then we'll assume the snake crossed the bottom boundary.
     jsr convert_fixed_point_y_to_unsigned ; Unsigned Y coord is now in A
     cmp #$fa ; 250
-    bcc @not_top
+    bcc @not_top ; < 250?
         ; Snake exited through the top of the screen
         ; Add 240 to Y
         ; Y is stored in 8.4 fixed point format
@@ -638,15 +638,22 @@ rts
         lda y_px
         clc
         adc #$f ; 15
+        lda #$ef ; 239
         sta y_px
+        lda #$0
+        sta y_sub_px
+        jmp @end
     @not_top:
     cmp #$f0 ; 240
-    bcc @end
+    bcc @end ; < 240?
         ; Same process as above
         lda y_px
         sec
         sbc #$f ; 15
+        lda #$0
         sta y_px
+        lda #$0
+        sta y_sub_px
     @end:
 rts
 .endproc
@@ -784,7 +791,7 @@ rts
     jsr store_head
     jsr store_new_head_in_array
 
-    jsr process_tail
+    ; jsr process_tail
 	rts
 .endproc
 
@@ -805,7 +812,9 @@ rts
     lda snakes_lo, x
     sta snake_ll_lo
 
-    lda prev_dir, x ; We just store directions so the tail can follow along
+    ; lda prev_dir, x ; We just store directions so the tail can follow along
+    jsr head_tile_to_nibble
+
     ldy head_index, x
     sta (snake_ll_lo), y
     ; Increment to new head
@@ -819,17 +828,49 @@ rts
     lda head_tile_x, x
     sta temp_x
     lda head_tile_y, x
-    ; Do a bounds check. If the snake head exits the screen to the top, the Y coordinate becomes out of bounds as it loops around to 255.
-    cmp #$f ; 15
-    bcs @end
     sta temp_y
     jsr choose_body_metatile
     tay
-    jsr ppu_place_board_meta_tile
+    ; jsr ppu_place_board_meta_tile
 
-    @end:
     rts
 .endproc
+
+; We store the tile position of x,y in one byte. It works because the max value of either is 15, which fits into a nibble
+; X is the high nibble, Y is the low nibble
+; IN
+; head_tile_x, head_tile_y
+; OUT
+; A = combined byte
+head_tile_to_nibble:
+    lda head_tile_x
+    asl
+    asl
+    asl
+    asl
+    sta temp_a
+    lda head_tile_y
+    ora temp_a
+    rts
+
+; The reverse of the above function. This takes a byte that has both x,y tile coords and separates them into tile coordinates
+; IN
+; A = byte
+; OUT
+; temp_x = x
+; temp_y = y
+compressed_byte_to_xy:
+    pha ; store A on the stack
+    and #%11110000 ; Get x
+    lsr
+    lsr
+    lsr
+    lsr
+    sta temp_x
+    pla ; restore A from the stack
+    and #%00001111
+    sta temp_y
+    rts
 
 ; Chooses the correct metatile for the "neck" of the snake.
 ; The neck is one below the head. We need the direction of the tile before the neck, as well as the neck, to determine
@@ -843,78 +884,40 @@ rts
 
     ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
     lda (snake_ll_lo), y
-    asl ; double the value to find the correct index in the array
-    tay
-    lda body_lo, Y
-    sta current_low_2
-    iny
-    lda body_lo, Y
-    sta current_high_2
+    ; TODO We changed the array from directions to x,y coords. Fix this function.
+    lda #BODY_HOR_SHAPE
+    ; asl ; double the value to find the correct index in the array
+    ; tay
+    ; lda body_lo, Y
+    ; sta current_low_2
+    ; iny
+    ; lda body_lo, Y
+    ; sta current_high_2
 
-    ldy head_index, x
-    lda (snake_ll_lo), y
+    ; ldy head_index, x
+    ; lda (snake_ll_lo), y
 
-    tay
-    lda (current_low_2), Y
+    ; tay
+    ; lda (current_low_2), Y
     sta temp_i
 rts
 .endproc
 
 ; I figure the game is more fun if the snake can loop around the level.
-; We do a bounds check and move the tail to the other side of the screen so it properly follows the head.
 .proc process_tail
     ; Move tail?
     lda size, x
     cmp target_size, x
     bne grow
-        lda tail_x, x
-        sta temp_x
-        lda tail_y, x
-        sta temp_y
-        jsr restore_board_meta_tile
-
         lda #$0
 
         ldy tail_index, x
         inc tail_index, x
         lda (snake_ll_lo), Y
-        cmp #UP
-        bne @not_up
-            dec tail_y, x
-            ; bounds check
-            lda tail_y, x
-            cmp #$00 ; 0 ; The header is not a play area
-            bne tail_done
-            lda #$e     ; 14
-            sta tail_y, x
-            jmp tail_done
-        @not_up:
-        cmp #DOWN
-        bne @not_down
-            inc tail_y, x
-            lda tail_y, x
-            cmp #$f ; 15
-            bne tail_done
-            lda #$0 ; 0 ; The header is not a play area
-            sta tail_y, x
-            jmp tail_done
-        @not_down:
-        cmp #LEFT
-        bne @not_left
-            dec tail_x, x
-            ; bounds check
-            bpl tail_done
-            lda #$f ; 15
-            sta tail_x, x
-            jmp tail_done
-        @not_left:
-            inc tail_x, x
-            lda tail_x, x
-            cmp #$10 ; 16
-            bne tail_done
-            lda #$0
-            sta tail_x, x
-            jmp tail_done
+        ; The compressed byte is loaded. Let's get the X and Y coords from that.
+        jsr compressed_byte_to_xy
+        ; Erase the tail from both the screen buffer and the PPU
+        jsr restore_board_meta_tile
         jmp tail_done
     grow:
         inc size, x
