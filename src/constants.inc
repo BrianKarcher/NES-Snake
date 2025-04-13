@@ -47,6 +47,7 @@ T_FOOD = 2
 
 SCREEN_SNAKE = 4 ; What to store the snake as in screen memory
 
+; The directions index into body_lo. The order of the numbers are VERY important.
 UP = 0
 DOWN = 1
 LEFT = 2

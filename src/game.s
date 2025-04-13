@@ -138,10 +138,14 @@ blank_shape:
 
 ; This is the start of a double-array. The first array index is the previous direction. The second index is the current direction.
 ; This determines which body shape to pick.
+; The directions are, IN ORDER, up, down, left, right
 ; TODO - Consider splitting the high and low bytes into separate arrays to remove the bit shifts.
 body_lo:
     .byte <body_up_lo, >body_up_lo, <body_down_lo, >body_down_lo, <body_left_lo, >body_left_lo, <body_right_lo, >body_right_lo ;, <body_down_hi ;, LEFT, RIGHT
 
+; Since the previous direction was up, we pick the shape based on the current (second) direction
+; orders are the same as before: up, down, left, right
+; Ex. prev = up (this array), current = left (third index in this array), the shape we want is BODY_UP_LEFT_SHAPE
 body_up_lo:
     .byte BODY_VERT_SHAPE
     .byte BODY_VERT_SHAPE
@@ -154,6 +158,7 @@ body_down_lo:
     .byte BODY_RIGHT_UP_SHAPE
     .byte BODY_DOWN_RIGHT_SHAPE
 
+; prev = left, current = up? The shape is BODY_DOWN_RIGHT_SHAPE. And so on.
 body_left_lo:
     .byte BODY_DOWN_RIGHT_SHAPE
     .byte BODY_UP_RIGHT_SHAPE
@@ -807,28 +812,22 @@ rts
     rts
 .endproc
 
+; Record the positions to the rotating array.
+; The tile positions get recorded into one byte as two nibbles (x,y)
 .proc store_new_head_in_array
-    ; Record the movement to the rotating array.
-    ; Mark the current head with the direction to the new head
-
     lda snakes_hi, x
     sta snake_ll_hi
     lda snakes_lo, x
     sta snake_ll_lo
 
-    ; lda prev_dir, x ; We just store directions so the tail can follow along
-    jsr head_tile_to_nibble
-
-    ldy head_index, x
-    sta (snake_ll_lo), y
     ; Increment to new head
-    iny
-    ; Store 'h' at the new head since we don't know the direction to its next head yet
-    lda cur_dir
+    inc head_index, x
+    ldy head_index, x
+    jsr head_tile_to_compressed
+    ; Store the compressed head tile to the array
     sta (snake_ll_lo), y
-    sty head_index, x
 
-    ; Draw over old head with body
+    ; Draw body
     lda head_tile_x, x
     sta temp_x
     lda head_tile_y, x
@@ -846,7 +845,7 @@ rts
 ; head_tile_x, head_tile_y
 ; OUT
 ; A = combined byte
-head_tile_to_nibble:
+head_tile_to_compressed:
     lda head_tile_x
     asl
     asl
@@ -883,26 +882,18 @@ compressed_byte_to_xy:
 ; OUT
 ; A = tile index
 .proc choose_body_metatile
-    ldy head_index, x
-    dey
-
     ; For each direction (up,down,left,right), we store the array as UP_LO, UP_HI, DOWN_LO, DOWN_HI, etc.
-    lda (snake_ll_lo), y
-    ; TODO We changed the array from directions to x,y coords. Fix this function.
-    lda #BODY_HOR_SHAPE
-    ; asl ; double the value to find the correct index in the array
-    ; tay
-    ; lda body_lo, Y
-    ; sta current_low_2
-    ; iny
-    ; lda body_lo, Y
-    ; sta current_high_2
+    lda prev_dir
+    asl ; double the value to find the correct index in the array
+    tay
+    lda body_lo, Y
+    sta current_low_2
+    iny
+    lda body_lo, Y
+    sta current_high_2
 
-    ; ldy head_index, x
-    ; lda (snake_ll_lo), y
-
-    ; tay
-    ; lda (current_low_2), Y
+    ldy cur_dir
+    lda (current_low_2), Y
     sta temp_i
 rts
 .endproc
