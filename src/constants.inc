@@ -64,7 +64,7 @@ BUTTON_RIGHT  = 1 << 0
 
 ACTION_BUTTONS = BUTTON_A | BUTTON_B | BUTTON_START | BUTTON_SELECT ; The right four bits are the action buttons
 
-START_LEVEL = 0
+START_LEVEL = 4
 PLAYER_COUNT = 1
 
 ; Define memory locations for MMC1 registers

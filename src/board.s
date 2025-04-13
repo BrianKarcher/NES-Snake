@@ -79,6 +79,23 @@ board3:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
 
+board35:
+.byte 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1
+.byte 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1
+.byte 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1
+.byte 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+
 board4:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -182,7 +199,7 @@ board9:
 .byte 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0
 
 boards:
-.word board0, board1, board2, board3, board4, board5, board6, board7, board8, board9
+.word board0, board1, board2, board3, board35, board4, board5, board6, board7, board8, board9
 
 startxs1:
     .byte $03, $03, $03
@@ -738,6 +755,7 @@ place_food:
     jsr find_blank_tile
     lda #FOOD
     sta temp_a
+    ldy temp_offset
     sta screen, y
 
     ; ldy #FOOD
@@ -759,25 +777,20 @@ find_blank_tile:
     jsr get_random_axis
     cmp #$e ; 14
     bpl find_y ; Find another y if > 15
-
-    ; header adjustment
-    clc
-    adc #$01
     sta temp_y
     jsr xy_meta_tile_offset
 
     ; Check if the tile is free
     tay ; transfer offset to Y
     lda screen, Y
-    ; TODO Use tile types instead of tile id's
-    cmp #$58
-    beq fail
-    cmp #$b
-    beq fail
-    cmp #$a ; Cannot place on top of snake
+    tay
+    lda attributes, y
+    cmp #$01
     beq fail
     rts
     fail:
+    ; There's potential for an endless loop here if there isn't an available tile. Need to keep that in mind when
+    ; designing levels
     jmp find_blank_tile
 
 ; Get a random tile on an axis (x or y)

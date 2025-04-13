@@ -1008,6 +1008,7 @@ rts
 
 wait_until_any_button_press:
     :
+        inc random_index
         jsr readjoy2_safe
         ldx #$0
         lda buttons, x
@@ -1212,6 +1213,7 @@ ppu_address_tile:
 ; proc converts an x,y position for a Metatile to the screen space's offset.
 ; OUT
 ; A = meta tile offset
+; temp_offset = meta tile offset
 ; Works ONLY on Metatiles (2x2 tiles)
 .proc xy_meta_tile_offset
     ; Perform calculation y * width(16) + x
