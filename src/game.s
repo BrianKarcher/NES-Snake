@@ -454,7 +454,10 @@ random:
     lda snakes_lo, x
     sta snake_ll_lo
 
-    lda #$4 ; h
+    jsr head_tile_to_compressed
+    ; Store the compressed head tile to the array
+    ldy head_index, x
+    sta (snake_ll_lo), y
     sta temp_a
     ldy #$0
     sta (snake_ll_lo), y
